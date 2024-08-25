@@ -21,7 +21,6 @@ jobs:
     - name: Install dependencies
       run: |
         pip install -r requirements-test.txt
-        pip install .
 
     - name: Run ruff
       run: |
@@ -45,6 +44,7 @@ jobs:
     - name: Install dependencies
       run: |
         pip install -r requirements-test.txt
+        pip install .
 
     - name: Run pytest
       run: |
