@@ -48,15 +48,16 @@ def main():
         action="store_true",
     )
     parser.add_argument(
-        "--fuzz-seconds",
-        help="Number of seconds to run fuzzing. Set to 0 for no fuzzing",
+        "--predict-timeout",
+        help="Timeout (in seconds) for predictions when comparing outputs",
         type=int,
         default=300,
     )
     parser.add_argument(
-        "--no-fuzz-user-inputs",
-        help="Don't use -i/--input values when fuzzing, instead use AI-generated values for every input",
-        action="store_true",
+        "--fuzz-seconds",
+        help="Number of seconds to run fuzzing. Set to 0 for no fuzzing",
+        type=int,
+        default=300,
     )
     parser.add_argument(
         "-v",
@@ -92,6 +93,7 @@ def main():
         inputs=inputs,
         disabled_inputs=args.disabled_inputs,
         do_compare_outputs=not args.no_compare_outputs,
+        predict_timeout=args.predict_timeout,
         fuzz_seconds=args.fuzz_seconds,
     )
 
@@ -106,6 +108,7 @@ def cog_safe_push(
     inputs: dict = {},
     disabled_inputs: list = [],
     do_compare_outputs: bool = True,
+    predict_timeout: int = 300,
     fuzz_seconds: int = 30,
 ):
     if model_owner == test_model_owner and model_name == test_model_name:
@@ -167,7 +170,7 @@ def cog_safe_push(
             predict.check_outputs_match(
                 test_model,
                 model,
-                timeout_seconds=300,
+                timeout_seconds=predict_timeout,
                 inputs=inputs,
                 disabled_inputs=disabled_inputs,
             )
