@@ -1,3 +1,4 @@
+from collections import defaultdict
 import re
 import argparse
 import replicate
@@ -28,7 +29,7 @@ def main():
     parser.add_argument(
         "-i",
         "--input",
-        help="Input key-value pairs in the format <key>=<value>. These will be used when comparing outputs, as well as during fuzzing (unless --no-fuzz-user-inputs is specified)",
+        help="Input key-value pairs in the format <key>=<value>. These will be used when comparing outputs, as well as during fuzzing. The special value '(omit)' will unset the key. You can specify the same key multiple times, and during fuzzing a random value will be picked. If multiple values are provided, the first value will be used when comparing outputs. You can give weight to values by appending '^<weight>%' to the value. This is particularly useful in combination with '(omit)' during fuzzing, e.g. '-i extra_lora=(omit)^50%' will leave the extra_lora field blank half the time.",
         action="append",
         dest="inputs",
         default=[],
@@ -92,7 +93,6 @@ def main():
         disabled_inputs=args.disabled_inputs,
         do_compare_outputs=not args.no_compare_outputs,
         fuzz_seconds=args.fuzz_seconds,
-        do_fuzz_user_inputs=not args.no_fuzz_user_inputs,
     )
 
 
@@ -107,13 +107,14 @@ def cog_safe_push(
     disabled_inputs: list = [],
     do_compare_outputs: bool = True,
     fuzz_seconds: int = 30,
-    do_fuzz_user_inputs: bool = False,
 ):
     if model_owner == test_model_owner and model_name == test_model_name:
         raise ValueError("Can't use the same model as test model")
 
     if test_only:
-        log.info(f"Running in test-only mode, no model will be pushed to {model_owner}/{model_name}")
+        log.info(
+            f"Running in test-only mode, no model will be pushed to {model_owner}/{model_name}"
+        )
 
     lint.lint_predict()
 
@@ -167,17 +168,16 @@ def cog_safe_push(
                 test_model,
                 model,
                 timeout_seconds=300,
-                fixed_inputs=inputs,
+                inputs=inputs,
                 disabled_inputs=disabled_inputs,
             )
 
     if fuzz_seconds > 0:
         log.info("Fuzzing test model")
-        fuzz_inputs = inputs if do_fuzz_user_inputs else {}
         predict.fuzz_model(
             test_model,
             fuzz_seconds,
-            fixed_inputs=fuzz_inputs,
+            inputs=inputs,
             disabled_inputs=disabled_inputs,
         )
 
@@ -188,18 +188,48 @@ def cog_safe_push(
         cog.push(model)
 
 
-def parse_inputs(inputs_list: list[str]) -> dict:
-    inputs = {}
+def parse_inputs(inputs_list: list[str]) -> dict[str, list[predict.WeightedInputValue]]:
+    input_values = defaultdict(list)
+    input_weights = defaultdict(list)
     for input_str in inputs_list:
         try:
-            key, raw_value = input_str.split("=", 1)
-            inputs[key.strip()] = parse_input_value(raw_value.strip())
+            key, weighted_value_str = input_str.strip().split("=", 1)
+            value_str, weight_percent = parse_input_weight_percent(weighted_value_str)
+            value = parse_input_value(value_str.strip())
+            input_values[key.strip()].append(value)
+            input_weights[key.strip()].append(weight_percent)
         except ValueError:
             raise ValueError(f"Invalid input format: {input_str}")
+
+    inputs = make_weighted_inputs(input_values, input_weights)
     return inputs
 
 
-def parse_input_value(value: str) -> bool | int | float | str:
+def make_weighted_inputs(
+    input_values: dict[str, list[str]], input_weights: dict[str, list[float]]
+) -> dict[str, list[predict.WeightedInputValue]]:
+    weighted_inputs = {}
+    for key, values in input_values.items():
+        weights = input_weights[key]
+        weight_sum = sum(w for w in weights if w is not None)
+        remaining_weight = 100 - weight_sum
+        num_unweighted = len([w for w in weights if w is None])
+        if num_unweighted > 0:
+            unweighted_weight = remaining_weight / num_unweighted
+            for i, weight in enumerate(weights):
+                if weight is None:
+                    weights[i] = unweighted_weight
+        weighted_inputs[key] = [
+            predict.WeightedInputValue(value=value, weight_percent=weight)
+            for value, weight in zip(values, weights)
+        ]
+    return weighted_inputs
+
+
+def parse_input_value(value: str) -> predict.InputValueType:
+    if value == "(omit)":
+        return predict.OMITTED_INPUT
+
     if value.lower() in ("true", "false"):
         return value.lower() == "true"
 
@@ -215,6 +245,26 @@ def parse_input_value(value: str) -> bool | int | float | str:
 
     # string
     return value
+
+
+def parse_input_weight_percent(value_str: str) -> tuple[str, float | None]:
+    parts = value_str.rsplit("^")
+    if len(parts) == 2 and value_str.endswith("%"):
+        percent_str = parts[1][:-1]
+        try:
+            percent = float(percent_str)
+        except ValueError:
+            raise ValueError(f"Failed to parse input value weight {percent_str}")
+        if percent <= 0:
+            raise ValueError(
+                f"Invalid value weight {percent_str}, must be greater than 0"
+            )
+        if percent > 100:
+            raise ValueError(
+                f"Invalid value weight {percent_str}, must be less or equal to 100"
+            )
+        return parts[0], percent
+    return value_str, None
 
 
 def get_model(owner, name):

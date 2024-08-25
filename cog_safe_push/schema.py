@@ -38,7 +38,9 @@ def check_backwards_compatible(test_model_schemas: dict, model_schemas: dict):
             input_type = spec["type"]
             test_input_type = test_spec.get("type")
             if input_type != test_input_type:
-                errors.append(f"Input {name} has changed type from {input_type} to {test_input_type}")
+                errors.append(
+                    f"Input {name} has changed type from {input_type} to {test_input_type}"
+                )
                 continue
 
             if "minimum" in test_spec and "minimum" not in spec:
@@ -60,17 +62,21 @@ def check_backwards_compatible(test_model_schemas: dict, model_schemas: dict):
 
         elif "allOf" in spec:
             choice_schema = model_schemas[spec["allOf"][0]["$ref"].split("/")[-1]]
-            test_choice_schema = test_model_schemas[spec["allOf"][0]["$ref"].split("/")[-1]]
+            test_choice_schema = test_model_schemas[
+                spec["allOf"][0]["$ref"].split("/")[-1]
+            ]
             choice_type = choice_schema["type"]
             test_choice_type = test_choice_schema["type"]
             if test_choice_type != choice_type:
-                errors.append(f"Input {name} choices has changed type from {choice_type} to {test_choice_type}")
+                errors.append(
+                    f"Input {name} choices has changed type from {choice_type} to {test_choice_type}"
+                )
                 continue
             choices = set(choice_schema["enum"])
             test_choices = set(test_choice_schema["enum"])
             missing_choices = choices - test_choices
             if missing_choices:
-                missing_choices_str = ', '.join([f"'{c}'" for c in missing_choices])
+                missing_choices_str = ", ".join([f"'{c}'" for c in missing_choices])
                 errors.append(f"Input {name} is missing choices: {missing_choices_str}")
 
     for name, spec in test_inputs.items():
@@ -85,7 +91,8 @@ def check_backwards_compatible(test_model_schemas: dict, model_schemas: dict):
 
     if errors:
         raise IncompatibleSchema(
-            "Schema is not backwards compatible: \n" + "\n".join(["* " + e for e in errors])
+            "Schema is not backwards compatible: \n"
+            + "\n".join(["* " + e for e in errors])
         )
 
 

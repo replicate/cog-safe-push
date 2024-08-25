@@ -18,13 +18,13 @@ setup(
     author="Andreas Jansson",
     author_email="andreas@replicate.com",
     description="Safely push a Cog model, with tests",
-    #long_description=open("README.md").read(),
-    #long_description_content_type="text/markdown",
+    # long_description=open("README.md").read(),
+    # long_description_content_type="text/markdown",
     url="https://github.com/andreasjansson/cog-safe-push",
     classifiers=[
         "Programming Language :: Python :: 3",
         "License :: OSI Approved :: MIT License",
         "Operating System :: OS Independent",
     ],
-    python_requires=">=3.12",
+    python_requires=">=3.11",
 )

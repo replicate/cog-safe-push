@@ -9,7 +9,7 @@ from replicate.exceptions import ReplicateException
 
 from cog_safe_push.main import cog_safe_push
 from cog_safe_push.exceptions import *
-from cog_safe_push import log
+from cog_safe_push import log, predict
 
 
 log.set_verbosity(2)
@@ -48,7 +48,7 @@ def test_cog_safe_push():
                     model_owner, model_name, model_owner, test_model_name, "cpu"
                 )
 
-        with fixture_dir("fuzz-error"):
+        with fixture_dir("additive-schema-fuzz-error"):
             with pytest.raises(FuzzError):
                 cog_safe_push(
                     model_owner,
@@ -59,8 +59,22 @@ def test_cog_safe_push():
                     fuzz_seconds=120,
                 )
 
-        with fixture_dir("additive-schema"):
-            cog_safe_push(model_owner, model_name, model_owner, test_model_name, "cpu")
+        with fixture_dir("additive-schema-fuzz-error"):
+            cog_safe_push(
+                model_owner,
+                model_name,
+                model_owner,
+                test_model_name,
+                "cpu",
+                fuzz_seconds=120,
+                inputs={
+                    "qux": [
+                        predict.WeightedInputValue(2, 30),
+                        predict.WeightedInputValue(3, 30),
+                        predict.WeightedInputValue(predict.OMITTED_INPUT, 40),
+                    ],
+                },
+            )
 
     finally:
         delete_model(model_owner, model_name)

@@ -82,5 +82,5 @@ options:
 
 ## Nota bene
 
-* I can't figure out how to set hardware other than `cpu` on a model created with the API, so for now it's best to create the test model manually (setting hardware in the UI), leave `--test-hardware` blank, and set `--test-model=<test-username>/<test-model-name>` instead
+* If you can't figure out the right name to use for `--test-hardware`, create the test model manually (setting hardware in the UI), leave `--test-hardware` blank, and set `--test-model=<test-username>/<test-model-name>` instead
 * This is alpha software. If you find a bug, please open an issue!

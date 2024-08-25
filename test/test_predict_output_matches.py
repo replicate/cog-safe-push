@@ -1,7 +1,14 @@
 import pytest
 from unittest.mock import patch, MagicMock
 
-from cog_safe_push.predict import outputs_match, is_url, is_image, is_audio, is_video, extensions_match
+from cog_safe_push.predict import (
+    outputs_match,
+    is_url,
+    is_image,
+    is_audio,
+    is_video,
+    extensions_match,
+)
 
 
 def test_identical_strings():
@@ -12,15 +19,20 @@ def test_different_strings_deterministic():
     assert outputs_match("hello", "world", True) == (False, "Strings aren't the same")
 
 
-@patch('cog_safe_push.predict.ai.boolean')
+@patch("cog_safe_push.predict.ai.boolean")
 def test_different_strings_non_deterministic(mock_ai_boolean):
     mock_ai_boolean.return_value = True
-    assert outputs_match("The quick brown fox", "A fast auburn canine", False) == (True, "")
+    assert outputs_match("The quick brown fox", "A fast auburn canine", False) == (
+        True,
+        "",
+    )
     mock_ai_boolean.assert_called_once()
 
     mock_ai_boolean.reset_mock()
     mock_ai_boolean.return_value = False
-    assert outputs_match("The quick brown fox", "Something completely different", False) == (False, "Strings aren't similar")
+    assert outputs_match(
+        "The quick brown fox", "Something completely different", False
+    ) == (False, "Strings aren't similar")
     mock_ai_boolean.assert_called_once()
 
 
@@ -75,7 +87,10 @@ def test_identical_lists():
 def test_different_list_values():
     list1 = [1, "hello", True]
     list2 = [1, "world", True]
-    assert outputs_match(list1, list2, True) == (False, "At index 1: Strings aren't the same")
+    assert outputs_match(list1, list2, True) == (
+        False,
+        "At index 1: Strings aren't the same",
+    )
 
 
 def test_different_list_lengths():
@@ -93,11 +108,17 @@ def test_nested_structures():
 def test_different_nested_structures():
     struct1 = {"a": [1, {"b": "hello"}], "c": True}
     struct2 = {"a": [1, {"b": "world"}], "c": True}
-    assert outputs_match(struct1, struct2, True) == (False, "In a: At index 1: In b: Strings aren't the same")
+    assert outputs_match(struct1, struct2, True) == (
+        False,
+        "In a: At index 1: In b: Strings aren't the same",
+    )
 
 
 def test_different_types():
-    assert outputs_match("42", 42, True) == (False, "The types of the outputs don't match")
+    assert outputs_match("42", 42, True) == (
+        False,
+        "The types of the outputs don't match",
+    )
 
 
 def test_is_url():
@@ -130,19 +151,21 @@ def test_extensions_match():
 
 
 def test_urls_with_different_extensions():
-    result, message = outputs_match("http://example.com/file1.jpg", "http://example.com/file2.png", True)
-    assert result == False
+    result, message = outputs_match(
+        "http://example.com/file1.jpg", "http://example.com/file2.png", True
+    )
+    assert not result
     assert message == "URL extensions don't match"
 
 
 def test_one_url_one_non_url():
     result, message = outputs_match("http://example.com/image.jpg", "not_a_url", True)
-    assert result == False
+    assert not result
     assert message == "Only one output is a URL"
 
 
-@patch('cog_safe_push.predict.download')
-@patch('PIL.Image.open')
+@patch("cog_safe_push.predict.download")
+@patch("PIL.Image.open")
 def test_images_with_different_sizes(mock_image_open, mock_download):
     mock_image1 = MagicMock()
     mock_image2 = MagicMock()
@@ -150,25 +173,31 @@ def test_images_with_different_sizes(mock_image_open, mock_download):
     mock_image2.size = (200, 200)
     mock_image_open.side_effect = [mock_image1, mock_image2]
 
-    result, message = outputs_match("http://example.com/image1.jpg", "http://example.com/image2.jpg", True)
-    assert result == False
+    result, message = outputs_match(
+        "http://example.com/image1.jpg", "http://example.com/image2.jpg", True
+    )
+    assert not result
     assert message == "Image sizes don't match"
 
 
-@patch('cog_safe_push.log.warning')
+@patch("cog_safe_push.log.warning")
 def test_unknown_url_format(mock_warning):
-    result, _ = outputs_match("http://example.com/unknown.xyz", "http://example.com/unknown.xyz", True)
-    assert result == True
-    mock_warning.assert_called_with("Unknown URL format: http://example.com/unknown.xyz")
+    result, _ = outputs_match(
+        "http://example.com/unknown.xyz", "http://example.com/unknown.xyz", True
+    )
+    assert result
+    mock_warning.assert_called_with(
+        "Unknown URL format: http://example.com/unknown.xyz"
+    )
 
 
-@patch('cog_safe_push.log.warning')
+@patch("cog_safe_push.log.warning")
 def test_unknown_output_type(mock_warning):
     class UnknownType:
         pass
 
     result, _ = outputs_match(UnknownType(), UnknownType(), True)
-    assert result == True
+    assert result
     mock_warning.assert_called_with(f"Unknown type: {type(UnknownType())}")
 
 
@@ -182,7 +211,7 @@ def test_large_structure_performance():
     result, _ = outputs_match(large_struct1, large_struct2, True)
     end_time = time.time()
 
-    assert result == True
+    assert result
     assert end_time - start_time < 1  # Ensure it completes in less than 1 second
 
 

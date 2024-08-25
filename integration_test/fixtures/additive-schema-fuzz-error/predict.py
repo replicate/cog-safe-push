@@ -12,8 +12,8 @@ class Predictor(BasePredictor):
     def predict(
         self,
         text: str = Input(description="Text that will be prepended by 'hello '."),
-        qux: bool = Input(description="To qux or not.", default=False),
+        qux: int = Input(description="A number between 1 and 3", default=2, ge=1, le=3),
     ) -> str:
-        if qux:
+        if qux == 1:
             raise ValueError("qux!")
         return self.hello + text

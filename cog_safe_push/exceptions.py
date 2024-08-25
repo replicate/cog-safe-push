@@ -25,5 +25,6 @@ class PredictionTimeout(Exception):
 class PredictionFailed(Exception):
     pass
 
+
 class AIError(Exception):
     pass

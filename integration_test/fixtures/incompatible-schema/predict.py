@@ -9,5 +9,7 @@ class Predictor(BasePredictor):
         """Load the model into memory to make running multiple predictions efficient"""
         self.hello = "hello "
 
-    def predict(self, text: str = Input(description="Text that will be prepended by 'hello '.")) -> int:
+    def predict(
+        self, text: str = Input(description="Text that will be prepended by 'hello '.")
+    ) -> int:
         return len(self.hello + text)

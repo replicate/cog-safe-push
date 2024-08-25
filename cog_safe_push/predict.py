@@ -1,3 +1,5 @@
+import random
+from dataclasses import dataclass
 import math
 from pathlib import Path
 import json
@@ -21,23 +23,39 @@ from .exceptions import (
 from . import ai, schema, log
 
 
+@dataclass
+class SpecialInputValue:
+    type: str
+
+
+InputValueType = bool | int | float | str | SpecialInputValue
+
+OMITTED_INPUT = SpecialInputValue("omit")
+
+
+@dataclass
+class WeightedInputValue:
+    value: InputValueType
+    weight_percent: float | None
+
+
 def check_outputs_match(
     test_model: replicate.model.Model,
     model: replicate.model.Model,
     timeout_seconds: float,
-    fixed_inputs: dict[str, Any],
+    inputs: dict[str, list[WeightedInputValue]],
     disabled_inputs: list[str],
 ):
     schemas = schema.get_schemas(model)
-    inputs, is_deterministic = make_predict_inputs(
+    predict_inputs, is_deterministic = make_predict_inputs(
         schemas,
         only_required=True,
         seed=1,
-        fixed_inputs=fixed_inputs,
+        fixed_inputs=first_input_per_key(inputs),
         disabled_inputs=disabled_inputs,
     )
-    test_output = predict(test_model, inputs, timeout_seconds)
-    output = predict(model, inputs, timeout_seconds)
+    test_output = predict(test_model, predict_inputs, timeout_seconds)
+    output = predict(model, predict_inputs, timeout_seconds)
     matches, error = outputs_match(test_output, output, is_deterministic)
     if not matches:
         raise OutputsDontMatch(
@@ -48,7 +66,7 @@ def check_outputs_match(
 def fuzz_model(
     model: replicate.model.Model,
     timeout_seconds: float,
-    fixed_inputs: dict[str, Any],
+    inputs: dict[str, list[WeightedInputValue]],
     disabled_inputs: list[str],
 ):
     start_time = time.time()
@@ -56,18 +74,18 @@ def fuzz_model(
     successful_predictions = 0
     while True:
         schemas = schema.get_schemas(model)
-        inputs, _ = make_predict_inputs(
+        predict_inputs, _ = make_predict_inputs(
             schemas,
             only_required=False,
             seed=None,
-            fixed_inputs=fixed_inputs,
+            fixed_inputs=sample_inputs(inputs),
             disabled_inputs=disabled_inputs,
             inputs_history=inputs_history,
         )
-        inputs_history.append(inputs)
+        inputs_history.append(predict_inputs)
         predict_timeout = start_time + timeout_seconds - time.time()
         try:
-            output = predict(model, inputs, timeout_seconds=predict_timeout)
+            output = predict(model, predict_inputs, timeout_seconds=predict_timeout)
         except PredictionTimeout:
             if not successful_predictions:
                 log.warning(
@@ -79,6 +97,24 @@ def fuzz_model(
         if not output:
             raise FuzzError("No output")
         successful_predictions += 1
+
+
+def first_input_per_key(inputs: dict[str, list[WeightedInputValue]]) -> dict[str, Any]:
+    return {key: values[0].value for key, values in inputs.items()}
+
+
+def sample_inputs(inputs: dict[str, list[WeightedInputValue]]) -> dict[str, Any]:
+    sampled_inputs = {}
+    for key, values in inputs.items():
+        total_weight = sum(v.weight_percent for v in values)
+        random_value = random.uniform(0, total_weight)
+        cumulative_weight = 0
+        for value in values:
+            cumulative_weight += value.weight_percent
+            if random_value <= cumulative_weight:
+                sampled_inputs[key] = value.value
+                break
+    return sampled_inputs
 
 
 def make_predict_inputs(
@@ -98,6 +134,10 @@ def make_predict_inputs(
     if "seed" in properties and seed is not None:
         is_deterministic = True
         del properties["seed"]
+
+    omitted_inputs = [k for k, v in fixed_inputs.items() if v == OMITTED_INPUT]
+    disabled_inputs = disabled_inputs + omitted_inputs
+    fixed_inputs = {k: v for k, v in fixed_inputs.items() if k not in disabled_inputs}
 
     schemas_str = json.dumps(schemas, indent=2)
     prompt = (
@@ -293,7 +333,7 @@ def predict(model: replicate.model.Model, inputs: dict, timeout_seconds: float):
 
 
 def outputs_match(test_output, output, is_deterministic: bool) -> tuple[bool, str]:
-    if type(test_output) != type(output):
+    if type(test_output) is not type(output):
         return False, "The types of the outputs don't match"
 
     if isinstance(output, str):
