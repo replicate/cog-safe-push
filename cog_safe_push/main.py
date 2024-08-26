@@ -10,12 +10,6 @@ from . import cog, lint, schema, predict, log
 def main():
     parser = argparse.ArgumentParser(description="Safely push a Cog model, with tests")
     parser.add_argument(
-        "--test-hardware",
-        help="Hardware to run the test model on. Only used when creating the test model, if it doesn't already exist.",
-        default=None,
-        type=str,
-    )
-    parser.add_argument(
         "--test-model",
         help="Replicate model to test on, in the format <username>/<model-name>. If omitted, <model>-test will be used. The test model is created automatically if it doesn't exist already",
         default=None,
@@ -25,6 +19,26 @@ def main():
         "--test-only",
         help="Only test the model, don't push it to <model>",
         action="store_true",
+    )
+    parser.add_argument(
+        "--test-hardware",
+        help="Hardware to run the test model on. Only used when creating the test model, if it doesn't already exist.",
+        default=None,
+        type=str,
+    )
+    parser.add_argument(
+        "--train", action="store_true", help="Run test on trainer instead of predictor"
+    )
+    parser.add_argument(
+        "--train-destination",
+        type=str,
+        help="Replicate model for the output of training, in the format <username>/<model-name>. Only used if --train is set. If omitted, <test-model>-test will be used. The model is created automatically if it doesn't exist.",
+    )
+    parser.add_argument(
+        "--train-destination-hardware",
+        help="Hardware to run the train destination model on. Only used if --train is set and if the train destination model doesn't already exist.",
+        default="cpu",
+        type=str,
     )
     parser.add_argument(
         "-i",
@@ -60,6 +74,12 @@ def main():
         default=300,
     )
     parser.add_argument(
+        "--fuzz-iterations",
+        help="Maximum number of iterations to run fuzzing. Leave blank to run for the full --fuzz-seconds",
+        type=int,
+        default=None,
+    )
+    parser.add_argument(
         "-v",
         "--verbose",
         action="count",
@@ -78,8 +98,18 @@ def main():
     if args.test_model:
         test_model_owner, test_model_name = parse_model(args.test_model)
     else:
-        test_model_owner = model_name
+        test_model_owner = model_owner
         test_model_name = model_name + "-test"
+
+    if args.train_destination and not args.train:
+        raise ValueError("--train-destination should only be set if --train is set")
+    if args.train and args.train_destination:
+        train_destination_owner, train_destination_name = parse_model(
+            args.train_destination
+        )
+    else:
+        train_destination_owner = test_model_owner
+        train_destination_name = test_model_name + "-dest"
 
     inputs = parse_inputs(args.inputs)
 
@@ -88,13 +118,17 @@ def main():
         model_name=model_name,
         test_model_owner=test_model_owner,
         test_model_name=test_model_name,
-        test_hardware=args.test_hardware,
         test_only=args.test_only,
+        test_hardware=args.test_hardware,
+        train=args.train,
+        train_destination_owner=train_destination_owner,
+        train_destination_name=train_destination_name,
         inputs=inputs,
         disabled_inputs=args.disabled_inputs,
         do_compare_outputs=not args.no_compare_outputs,
         predict_timeout=args.predict_timeout,
         fuzz_seconds=args.fuzz_seconds,
+        fuzz_iterations=args.fuzz_iterations,
     )
 
 
@@ -105,11 +139,16 @@ def cog_safe_push(
     test_model_name: str,
     test_hardware: str,
     test_only: bool = False,
+    train: bool = False,
+    train_destination_owner: str | None = None,
+    train_destination_name: str | None = None,
+    train_destination_hardware: str = "cpu",
     inputs: dict = {},
     disabled_inputs: list = [],
     do_compare_outputs: bool = True,
     predict_timeout: int = 300,
     fuzz_seconds: int = 30,
+    fuzz_iterations: int | None = None,
 ):
     if model_owner == test_model_owner and model_name == test_model_name:
         raise ValueError("Can't use the same model as test model")
@@ -119,7 +158,10 @@ def cog_safe_push(
             f"Running in test-only mode, no model will be pushed to {model_owner}/{model_name}"
         )
 
-    lint.lint_predict()
+    if train:
+        lint.lint_train()
+    else:
+        lint.lint_predict()
 
     if set(inputs.keys()) & set(disabled_inputs):
         raise ValueError("--input keys must not be present in --disabled-inputs")
@@ -130,23 +172,14 @@ def cog_safe_push(
             f"You need to create the model {model_owner}/{model_name} before running this script"
         )
 
-    test_model = get_model(test_model_owner, test_model_name)
+    test_model = get_or_create_model(test_model_owner, test_model_name, test_hardware)
 
-    if not test_model:
-        if not test_hardware:
-            raise ValueError(
-                f"Test model {test_model_owner}/{test_model_name} doesn't exist, and you didn't specify --test-hardware"
-            )
-
-        log.info(
-            f"Creating test model {test_model_owner}/{test_model_name} with hardware {test_hardware}"
+    if train:
+        train_destination = get_or_create_model(
+            train_destination_owner, train_destination_name, train_destination_hardware
         )
-        test_model = replicate.models.create(
-            owner=test_model_owner,
-            name=test_model_name,
-            visibility="private",
-            hardware=test_hardware,
-        )
+    else:
+        train_destination = None
 
     log.info("Pushing test model")
     pushed_version_id = cog.push(test_model)
@@ -156,20 +189,24 @@ def cog_safe_push(
     ), f"Pushed version ID {pushed_version_id} doesn't match latest version on {test_model_owner}/{test_model_name}: {test_model.versions.list()[0].id}"
 
     log.info("Linting test model schema")
-    schema.lint(test_model)
+    schema.lint(test_model, train=train)
 
     if model.latest_version:
         log.info("Checking schema backwards compatibility")
-        test_model_schemas = schema.get_schemas(test_model)
-        model_schemas = schema.get_schemas(model)
-        schema.check_backwards_compatible(test_model_schemas, model_schemas)
+        test_model_schemas = schema.get_schemas(test_model, train=train)
+        model_schemas = schema.get_schemas(model, train=train)
+        schema.check_backwards_compatible(
+            test_model_schemas, model_schemas, train=train
+        )
         if do_compare_outputs:
             log.info(
                 "Checking that outputs match between existing version and test version"
             )
             predict.check_outputs_match(
-                test_model,
-                model,
+                test_model=test_model,
+                model=model,
+                train=train,
+                train_destination=train_destination,
                 timeout_seconds=predict_timeout,
                 inputs=inputs,
                 disabled_inputs=disabled_inputs,
@@ -178,8 +215,11 @@ def cog_safe_push(
     if fuzz_seconds > 0:
         log.info("Fuzzing test model")
         predict.fuzz_model(
-            test_model,
-            fuzz_seconds,
+            model=test_model,
+            train=train,
+            train_destination=train_destination,
+            timeout_seconds=fuzz_seconds,
+            max_iterations=fuzz_iterations,
             inputs=inputs,
             disabled_inputs=disabled_inputs,
         )
@@ -270,7 +310,26 @@ def parse_input_weight_percent(value_str: str) -> tuple[str, float | None]:
     return value_str, None
 
 
-def get_model(owner, name):
+def get_or_create_model(model_owner, model_name, hardware) -> replicate.model.Model:
+    model = get_model(model_owner, model_name)
+
+    if not model:
+        if not hardware:
+            raise ValueError(
+                f"Model {model_owner}/{model_name} doesn't exist, and you didn't specify hardware"
+            )
+
+        log.info(f"Creating model {model_owner}/{model_name} with hardware {hardware}")
+        model = replicate.models.create(
+            owner=model_owner,
+            name=model_name,
+            visibility="private",
+            hardware=hardware,
+        )
+    return model
+
+
+def get_model(owner, name) -> replicate.model.Model:
     try:
         model = replicate.models.get(f"{owner}/{name}")
     except ReplicateException as e:

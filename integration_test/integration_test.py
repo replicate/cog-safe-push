@@ -128,6 +128,47 @@ def test_cog_safe_push_images_with_seed():
         delete_model(model_owner, test_model_name)
 
 
+def test_cog_safe_push_train():
+    model_owner = "replicate-internal"
+    model_name = "test-cog-safe-push-" + datetime.datetime.now().strftime(
+        "%y%m%d-%H%M%S"
+    )
+    test_model_name = model_name + "-test"
+    create_model(model_owner, model_name)
+
+    try:
+        with fixture_dir("train"):
+            cog_safe_push(
+                model_owner,
+                model_name,
+                model_owner,
+                test_model_name,
+                "cpu",
+                train=True,
+                train_destination_owner=model_owner,
+                train_destination_name=test_model_name + "-dest",
+                fuzz_iterations=1,
+            )
+
+        with fixture_dir("train"):
+            cog_safe_push(
+                model_owner,
+                model_name,
+                model_owner,
+                test_model_name,
+                "cpu",
+                train=True,
+                train_destination_owner=model_owner,
+                train_destination_name=test_model_name + "-dest",
+                fuzz_iterations=1,
+            )
+
+    finally:
+        delete_model(model_owner, model_name)
+        delete_model(model_owner, test_model_name)
+        delete_model(model_owner, test_model_name + "-dest")
+
+
 def create_model(model_owner, model_name):
     replicate.models.create(
         owner=model_owner,

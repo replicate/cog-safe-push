@@ -34,6 +34,7 @@ def test_make_predict_inputs_basic(mock_json_object, sample_schemas):
 
     inputs, is_deterministic = make_predict_inputs(
         sample_schemas,
+        train=False,
         only_required=True,
         seed=None,
         fixed_inputs={},
@@ -50,6 +51,7 @@ def test_make_predict_inputs_with_seed(sample_schemas):
 
         inputs, is_deterministic = make_predict_inputs(
             sample_schemas,
+            train=False,
             only_required=True,
             seed=123,
             fixed_inputs={},
@@ -66,6 +68,7 @@ def test_make_predict_inputs_with_fixed_inputs(sample_schemas):
 
         inputs, _ = make_predict_inputs(
             sample_schemas,
+            train=False,
             only_required=True,
             seed=None,
             fixed_inputs={"text": "fixed"},
@@ -86,6 +89,7 @@ def test_make_predict_inputs_with_disabled_inputs(sample_schemas):
 
         inputs, _ = make_predict_inputs(
             sample_schemas,
+            train=False,
             only_required=False,
             seed=None,
             fixed_inputs={},
@@ -106,6 +110,7 @@ def test_make_predict_inputs_with_inputs_history(sample_schemas):
 
         inputs, _ = make_predict_inputs(
             sample_schemas,
+            train=False,
             only_required=True,
             seed=None,
             fixed_inputs={},
@@ -125,6 +130,7 @@ def test_make_predict_inputs_ai_error(sample_schemas):
 
         inputs, _ = make_predict_inputs(
             sample_schemas,
+            train=False,
             only_required=True,
             seed=None,
             fixed_inputs={},
@@ -144,6 +150,7 @@ def test_make_predict_inputs_max_attempts_reached(sample_schemas):
         with pytest.raises(AIError):
             make_predict_inputs(
                 sample_schemas,
+                train=False,
                 only_required=True,
                 seed=None,
                 fixed_inputs={},
