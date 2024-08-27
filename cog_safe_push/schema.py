@@ -1,9 +1,9 @@
-import replicate
+from replicate.model import Model
 
-from .exceptions import IncompatibleSchema, SchemaLintError
+from .exceptions import IncompatibleSchemaError, SchemaLintError
 
 
-def lint(model: replicate.model.Model, train: bool):
+def lint(model: Model, train: bool):
     errors = []
 
     input_name = "TrainingInput" if train else "Input"
@@ -98,7 +98,7 @@ def check_backwards_compatible(
         errors.append(f"{output_name} has changed type")
 
     if errors:
-        raise IncompatibleSchema(
+        raise IncompatibleSchemaError(
             "Schema is not backwards compatible: \n"
             + "\n".join(["* " + e for e in errors])
         )

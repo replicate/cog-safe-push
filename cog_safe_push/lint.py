@@ -1,14 +1,14 @@
-from pathlib import Path
 import subprocess
+from pathlib import Path
+from typing import Any
+
 import yaml
 
 from .exceptions import CodeLintError
 
 
 def lint_predict():
-    with open("cog.yaml", "r") as f:
-        cog_config = yaml.safe_load(f)
-
+    cog_config = load_cog_config()
     predict_config = cog_config.get("predict", "")
     predict_filename = predict_config.split(":")[0]
 
@@ -19,9 +19,7 @@ def lint_predict():
 
 
 def lint_train():
-    with open("cog.yaml", "r") as f:
-        cog_config = yaml.safe_load(f)
-
+    cog_config = load_cog_config()
     train_config = cog_config.get("train", "")
     train_filename = train_config.split(":")[0]
 
@@ -29,6 +27,11 @@ def lint_train():
         raise CodeLintError("cog.yaml doesn't have a valid train stanza")
 
     lint_file(train_filename)
+
+
+def load_cog_config() -> dict[str, Any]:
+    with Path("cog.yaml").open() as f:
+        return yaml.safe_load(f)
 
 
 def lint_file(filename: str):

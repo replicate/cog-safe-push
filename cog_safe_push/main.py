@@ -1,10 +1,12 @@
-from collections import defaultdict
-import re
 import argparse
-import replicate
-from replicate.exceptions import ReplicateException
+import re
+from collections import defaultdict
 
-from . import cog, lint, schema, predict, log
+import replicate
+from replicate.exceptions import ReplicateError
+from replicate.model import Model
+
+from . import cog, lint, log, predict, schema
 
 
 def main():
@@ -244,8 +246,7 @@ def parse_inputs(inputs_list: list[str]) -> dict[str, list[predict.WeightedInput
         except ValueError:
             raise ValueError(f"Invalid input format: {input_str}")
 
-    inputs = make_weighted_inputs(input_values, input_weights)
-    return inputs
+    return make_weighted_inputs(input_values, input_weights)
 
 
 def make_weighted_inputs(
@@ -310,7 +311,7 @@ def parse_input_weight_percent(value_str: str) -> tuple[str, float | None]:
     return value_str, None
 
 
-def get_or_create_model(model_owner, model_name, hardware) -> replicate.model.Model:
+def get_or_create_model(model_owner, model_name, hardware) -> Model:
     model = get_model(model_owner, model_name)
 
     if not model:
@@ -329,10 +330,10 @@ def get_or_create_model(model_owner, model_name, hardware) -> replicate.model.Mo
     return model
 
 
-def get_model(owner, name) -> replicate.model.Model:
+def get_model(owner, name) -> Model | None:
     try:
         model = replicate.models.get(f"{owner}/{name}")
-    except ReplicateException as e:
+    except ReplicateError as e:
         if e.status == 404:
             return None
         raise

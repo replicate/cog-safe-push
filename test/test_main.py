@@ -1,12 +1,13 @@
 import pytest
+
 from cog_safe_push.main import (
-    parse_model,
-    parse_inputs,
+    make_weighted_inputs,
     parse_input_value,
     parse_input_weight_percent,
-    make_weighted_inputs,
+    parse_inputs,
+    parse_model,
 )
-from cog_safe_push.predict import WeightedInputValue, OMITTED_INPUT
+from cog_safe_push.predict import OMITTED_INPUT, WeightedInputValue
 
 
 def test_parse_model():

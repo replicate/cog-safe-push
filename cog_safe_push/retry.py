@@ -17,6 +17,7 @@ def retry(attempts=3):
                     else:
                         log.warning(f"Giving up after {attempts} attempts")
                         raise
+            return None
 
         return wrapper_retry
 

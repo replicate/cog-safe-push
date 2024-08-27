@@ -1,16 +1,16 @@
-import json
-from pathlib import Path
-import os
-from contextlib import contextmanager
-import pytest
 import datetime
+import json
+import os
+from contextlib import contextmanager, suppress
+from pathlib import Path
+
+import pytest
 import replicate
 from replicate.exceptions import ReplicateException
 
-from cog_safe_push.main import cog_safe_push
-from cog_safe_push.exceptions import *
 from cog_safe_push import log, predict
-
+from cog_safe_push.exceptions import *
+from cog_safe_push.main import cog_safe_push
 
 log.set_verbosity(2)
 
@@ -37,13 +37,13 @@ def test_cog_safe_push():
                 )
 
         with fixture_dir("incompatible-schema"):
-            with pytest.raises(IncompatibleSchema):
+            with pytest.raises(IncompatibleSchemaError):
                 cog_safe_push(
                     model_owner, model_name, model_owner, test_model_name, "cpu"
                 )
 
         with fixture_dir("outputs-dont-match"):
-            with pytest.raises(OutputsDontMatch):
+            with pytest.raises(OutputsDontMatchError):
                 cog_safe_push(
                     model_owner, model_name, model_owner, test_model_name, "cpu"
                 )
@@ -186,16 +186,15 @@ def delete_model(model_owner, model_name):
         return
 
     for version in model.versions.list():
-        try:
-            print(f"Deleting version {version.id}")
+        print(f"Deleting version {version.id}")
+        with suppress(json.JSONDecodeError):
+            # bug in replicate-python causes delete to throw JSONDecodeError
             model.versions.delete(version.id)
-        except json.JSONDecodeError:
-            pass  # bug in replicate-python causes delete to throw JSONDecodeError
 
-    try:
+    print(f"Deleting model {model_owner}/{model_name}")
+    with suppress(json.JSONDecodeError):
+        # bug in replicate-python causes delete to throw JSONDecodeError
         replicate.models.delete(model_owner, model_name)
-    except json.JSONDecodeError:
-        pass  # bug in replicate-python causes delete to throw JSONDecodeError
 
 
 @contextmanager

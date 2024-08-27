@@ -1,26 +1,27 @@
-import random
-from dataclasses import dataclass
-import math
-from pathlib import Path
 import json
-import os
-from urllib.parse import urlparse
-from contextlib import contextmanager
-import time
-from typing import Any, Iterator
+import math
+import random
 import tempfile
-import requests
-import replicate
-from PIL import Image
+import time
+from contextlib import contextmanager
+from dataclasses import dataclass
+from pathlib import Path
+from typing import Any, Iterator
+from urllib.parse import urlparse
 
+import replicate
+import requests
+from PIL import Image
+from replicate.model import Model
+
+from . import ai, log, schema
 from .exceptions import (
-    OutputsDontMatch,
-    PredictionTimeout,
-    PredictionFailed,
-    FuzzError,
     AIError,
+    FuzzError,
+    OutputsDontMatchError,
+    PredictionFailedError,
+    PredictionTimeoutError,
 )
-from . import ai, schema, log
 
 
 @dataclass
@@ -40,10 +41,10 @@ class WeightedInputValue:
 
 
 def check_outputs_match(
-    test_model: replicate.model.Model,
-    model: replicate.model.Model,
+    test_model: Model,
+    model: Model,
     train: bool,
-    train_destination: str | None,
+    train_destination: Model | None,
     timeout_seconds: float,
     inputs: dict[str, list[WeightedInputValue]],
     disabled_inputs: list[str],
@@ -73,15 +74,15 @@ def check_outputs_match(
     )
     matches, error = outputs_match(test_output, output, is_deterministic)
     if not matches:
-        raise OutputsDontMatch(
+        raise OutputsDontMatchError(
             f"Outputs don't match:\n\ntest output:\n{test_output}\n\nmodel output:\n{output}\n\n{error}"
         )
 
 
 def fuzz_model(
-    model: replicate.model.Model,
+    model: Model,
     train: bool,
-    train_destination: str | None,
+    train_destination: Model | None,
     timeout_seconds: float,
     max_iterations: int | None,
     inputs: dict[str, list[WeightedInputValue]],
@@ -111,13 +112,13 @@ def fuzz_model(
                 inputs=predict_inputs,
                 timeout_seconds=predict_timeout,
             )
-        except PredictionTimeout:
+        except PredictionTimeoutError:
             if not successful_predictions:
                 log.warning(
                     f"No predictions succeeded in {timeout_seconds}, try increasing --fuzz-seconds"
                 )
             return
-        except PredictionFailed as e:
+        except PredictionFailedError as e:
             raise FuzzError(e)
         if not output:
             raise FuzzError("No output")
@@ -345,9 +346,9 @@ Return a new combination of inputs that you haven't used before. You have previo
 
 
 def predict(
-    model: replicate.model.Model,
+    model: Model,
     train: bool,
-    train_destination: str | None,
+    train_destination: Model | None,
     inputs: dict,
     timeout_seconds: float,
 ):
@@ -356,11 +357,12 @@ def predict(
     )
 
     if train:
+        assert train_destination
         version_ref = f"{model.owner}/{model.name}:{model.versions.list()[0].id}"
         prediction = replicate.trainings.create(
             version=version_ref,
             input=inputs,
-            destination=train_destination,
+            destination=f"{train_destination.owner}/{train_destination.name}",
         )
     else:
         prediction = replicate.predictions.create(
@@ -371,11 +373,11 @@ def predict(
     while prediction.status not in ["succeeded", "failed", "canceled"]:
         time.sleep(0.5)
         if time.time() - start_time > timeout_seconds:
-            raise PredictionTimeout()
+            raise PredictionTimeoutError()
         prediction.reload()
 
     if prediction.status == "failed":
-        raise PredictionFailed(prediction.error)
+        raise PredictionFailedError(prediction.error)
 
     log.vv(f"Got output: {truncate(prediction.output)}")
 
@@ -413,7 +415,7 @@ def outputs_match(test_output, output, is_deterministic: bool) -> tuple[bool, st
     if isinstance(output, dict):
         if test_output.keys() != output.keys():
             return False, "Dict keys don't match"
-        for key in output.keys():
+        for key in output:
             matches, message = outputs_match(
                 test_output[key], output[key], is_deterministic
             )
@@ -452,8 +454,7 @@ String 2: '{s2}'
     )
     if fuzzy_match:
         return True, ""
-    else:
-        return False, "Strings aren't similar"
+    return False, "Strings aren't similar"
 
 
 def urls_match(url1: str, url2: str, is_deterministic: bool) -> tuple[bool, str]:
@@ -490,8 +491,8 @@ def is_video(url: str) -> bool:
 
 
 def extensions_match(url1: str, url2: str) -> bool:
-    _, ext1 = os.path.splitext(urlparse(url1).path)
-    _, ext2 = os.path.splitext(urlparse(url2).path)
+    ext1 = Path(urlparse(url1).path).suffix
+    ext2 = Path(urlparse(url2).path).suffix
     return ext1.lower() == ext2.lower()
 
 
@@ -510,7 +511,7 @@ def images_match(url1: str, url2: str, is_deterministic: bool) -> tuple[bool, st
             diff = math.sqrt(
                 sum(
                     sum((c1 - c2) ** 2 for c1, c2 in zip(p1, p2))
-                    for p1, p2 in zip(img1.getdata(), img2.getdata())
+                    for p1, p2 in zip(img1.getdata(), img2.getdata())  # pyright: ignore
                 )
             )
 
@@ -565,7 +566,7 @@ def videos_match(url1: str, url2: str, is_deterministic: bool) -> tuple[bool, st
 
 @contextmanager
 def download(url: str) -> Iterator[Path]:
-    suffix = os.path.splitext(url)[1]
+    suffix = Path(url).suffix
     with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp_file:
         response = requests.get(url)
         response.raise_for_status()
@@ -575,7 +576,7 @@ def download(url: str) -> Iterator[Path]:
     try:
         yield Path(tmp_file.name)
     finally:
-        os.unlink(tmp_file.name)
+        tmp_file.unlink()
 
 
 def truncate(s, max_length=500) -> str:
