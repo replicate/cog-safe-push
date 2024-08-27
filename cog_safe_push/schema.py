@@ -3,11 +3,12 @@ import replicate
 from .exceptions import IncompatibleSchema, SchemaLintError
 
 
-def lint(model: replicate.model.Model):
+def lint(model: replicate.model.Model, train: bool):
     errors = []
 
+    input_name = "TrainingInput" if train else "Input"
     schema = model.versions.list()[0].openapi_schema
-    properties = schema["components"]["schemas"]["Input"]["properties"]
+    properties = schema["components"]["schemas"][input_name]["properties"]
     for name, spec in properties.items():
         description = spec.get("description")
         if not description:
@@ -24,9 +25,14 @@ def lint(model: replicate.model.Model):
         )
 
 
-def check_backwards_compatible(test_model_schemas: dict, model_schemas: dict):
-    test_inputs = test_model_schemas["Input"]
-    inputs = model_schemas["Input"]
+def check_backwards_compatible(
+    test_model_schemas: dict, model_schemas: dict, train: bool
+):
+    input_name = "TrainingInput" if train else "Input"
+    output_name = "TrainingOutput" if train else "Output"
+
+    test_inputs = test_model_schemas[input_name]
+    inputs = model_schemas[input_name]
 
     errors = []
     for name, spec in inputs.items():
@@ -39,24 +45,24 @@ def check_backwards_compatible(test_model_schemas: dict, model_schemas: dict):
             test_input_type = test_spec.get("type")
             if input_type != test_input_type:
                 errors.append(
-                    f"Input {name} has changed type from {input_type} to {test_input_type}"
+                    f"{input_name} {name} has changed type from {input_type} to {test_input_type}"
                 )
                 continue
 
             if "minimum" in test_spec and "minimum" not in spec:
-                errors.append(f"Input {name} has added a minimum constraint")
+                errors.append(f"{input_name} {name} has added a minimum constraint")
             elif "minimum" in test_spec and "minimum" in spec:
                 if test_spec["minimum"] > spec["minimum"]:
-                    errors.append(f"Input {name} has a higher minimum")
+                    errors.append(f"{input_name} {name} has a higher minimum")
 
             if "maximum" in test_spec and "maximum" not in spec:
-                errors.append(f"Input {name} has added a maximum constraint")
+                errors.append(f"{input_name} {name} has added a maximum constraint")
             elif "maximum" in test_spec and "maximum" in spec:
                 if test_spec["maximum"] < spec["maximum"]:
-                    errors.append(f"Input {name} has a lower maximum")
+                    errors.append(f"{input_name} {name} has a lower maximum")
 
             if test_spec.get("format", "") != spec.get("format", ""):
-                errors.append(f"Input {name} has changed format")
+                errors.append(f"{input_name} {name} has changed format")
 
             # We allow defaults to be changed
 
@@ -69,7 +75,7 @@ def check_backwards_compatible(test_model_schemas: dict, model_schemas: dict):
             test_choice_type = test_choice_schema["type"]
             if test_choice_type != choice_type:
                 errors.append(
-                    f"Input {name} choices has changed type from {choice_type} to {test_choice_type}"
+                    f"{input_name} {name} choices has changed type from {choice_type} to {test_choice_type}"
                 )
                 continue
             choices = set(choice_schema["enum"])
@@ -77,17 +83,19 @@ def check_backwards_compatible(test_model_schemas: dict, model_schemas: dict):
             missing_choices = choices - test_choices
             if missing_choices:
                 missing_choices_str = ", ".join([f"'{c}'" for c in missing_choices])
-                errors.append(f"Input {name} is missing choices: {missing_choices_str}")
+                errors.append(
+                    f"{input_name} {name} is missing choices: {missing_choices_str}"
+                )
 
     for name, spec in test_inputs.items():
         if name not in inputs and "default" not in spec:
-            errors.append(f"Input {name} is new and is required")
+            errors.append(f"{input_name} {name} is new and is required")
 
-    output_schema = model_schemas["Output"]
-    test_output_schema = test_model_schemas["Output"]
+    output_schema = model_schemas[output_name]
+    test_output_schema = test_model_schemas[output_name]
 
     if test_output_schema["type"] != output_schema["type"]:
-        errors.append("Output has changed type")
+        errors.append(f"{output_name} has changed type")
 
     if errors:
         raise IncompatibleSchema(
@@ -96,15 +104,25 @@ def check_backwards_compatible(test_model_schemas: dict, model_schemas: dict):
         )
 
 
-def get_schemas(model):
+def get_schemas(model, train: bool):
     schemas = model.versions.list()[0].openapi_schema["components"]["schemas"]
-    for unnecessary_key in [
-        "WebhookEvent",
+    unnecessary_keys = [
         "HTTPValidationError",
         "PredictionRequest",
+        "PredictionResponse",
         "Status",
+        "TrainingRequest",
+        "TrainingResponse",
         "ValidationError",
-    ]:
+        "WebhookEvent",
+    ]
+
+    if train:
+        unnecessary_keys += ["Input", "Output"]
+    else:
+        unnecessary_keys += ["TrainingInput", "TrainingOutput"]
+
+    for unnecessary_key in unnecessary_keys:
         if unnecessary_key in schemas:
             del schemas[unnecessary_key]
     return schemas

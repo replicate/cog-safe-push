@@ -36,26 +36,41 @@ OMITTED_INPUT = SpecialInputValue("omit")
 @dataclass
 class WeightedInputValue:
     value: InputValueType
-    weight_percent: float | None
+    weight_percent: float
 
 
 def check_outputs_match(
     test_model: replicate.model.Model,
     model: replicate.model.Model,
+    train: bool,
+    train_destination: str | None,
     timeout_seconds: float,
     inputs: dict[str, list[WeightedInputValue]],
     disabled_inputs: list[str],
 ):
-    schemas = schema.get_schemas(model)
+    schemas = schema.get_schemas(model, train=train)
     predict_inputs, is_deterministic = make_predict_inputs(
         schemas,
+        train=train,
         only_required=True,
         seed=1,
         fixed_inputs=first_input_per_key(inputs),
         disabled_inputs=disabled_inputs,
     )
-    test_output = predict(test_model, predict_inputs, timeout_seconds)
-    output = predict(model, predict_inputs, timeout_seconds)
+    test_output = predict(
+        model=test_model,
+        train=train,
+        train_destination=train_destination,
+        inputs=predict_inputs,
+        timeout_seconds=timeout_seconds,
+    )
+    output = predict(
+        model=model,
+        train=train,
+        train_destination=train_destination,
+        inputs=predict_inputs,
+        timeout_seconds=timeout_seconds,
+    )
     matches, error = outputs_match(test_output, output, is_deterministic)
     if not matches:
         raise OutputsDontMatch(
@@ -65,7 +80,10 @@ def check_outputs_match(
 
 def fuzz_model(
     model: replicate.model.Model,
+    train: bool,
+    train_destination: str | None,
     timeout_seconds: float,
+    max_iterations: int | None,
     inputs: dict[str, list[WeightedInputValue]],
     disabled_inputs: list[str],
 ):
@@ -73,9 +91,10 @@ def fuzz_model(
     inputs_history = []
     successful_predictions = 0
     while True:
-        schemas = schema.get_schemas(model)
+        schemas = schema.get_schemas(model, train=train)
         predict_inputs, _ = make_predict_inputs(
             schemas,
+            train=train,
             only_required=False,
             seed=None,
             fixed_inputs=sample_inputs(inputs),
@@ -85,7 +104,13 @@ def fuzz_model(
         inputs_history.append(predict_inputs)
         predict_timeout = start_time + timeout_seconds - time.time()
         try:
-            output = predict(model, predict_inputs, timeout_seconds=predict_timeout)
+            output = predict(
+                model=model,
+                train=train,
+                train_destination=train_destination,
+                inputs=predict_inputs,
+                timeout_seconds=predict_timeout,
+            )
         except PredictionTimeout:
             if not successful_predictions:
                 log.warning(
@@ -97,6 +122,8 @@ def fuzz_model(
         if not output:
             raise FuzzError("No output")
         successful_predictions += 1
+        if max_iterations is not None and successful_predictions == max_iterations:
+            return
 
 
 def first_input_per_key(inputs: dict[str, list[WeightedInputValue]]) -> dict[str, Any]:
@@ -119,6 +146,7 @@ def sample_inputs(inputs: dict[str, list[WeightedInputValue]]) -> dict[str, Any]
 
 def make_predict_inputs(
     schemas: dict,
+    train: bool,
     only_required: bool,
     seed: int | None,
     fixed_inputs: dict[str, Any],
@@ -126,7 +154,8 @@ def make_predict_inputs(
     inputs_history: list[dict] | None = None,
     attempt=0,
 ) -> tuple[dict, bool]:
-    input_schema = schemas["Input"]
+    input_name = "TrainingInput" if train else "Input"
+    input_schema = schemas[input_name]
     properties = input_schema["properties"]
     required = input_schema.get("required", [])
 
@@ -141,11 +170,13 @@ def make_predict_inputs(
 
     schemas_str = json.dumps(schemas, indent=2)
     prompt = (
-        """
+        '''
 Below is an example of an OpenAPI schema for a Cog model:
 
 {
-  "Input": {
+  "'''
+        + input_name
+        + '''": {
     "properties": {
       "my_bool": {
         "description": "A bool.",
@@ -197,7 +228,9 @@ Below is an example of an OpenAPI schema for a Cog model:
       "my_choice",
       "my_constrained_int"
     ],
-    "title": "Input",
+    "title": "'''
+        + input_name
+        + """",
     "type": "object"
   },
   "my_choice": {
@@ -229,7 +262,7 @@ Now, given the following OpenAPI schemas:
 
 {schemas_str}
 
-Generate a json payload for the Input schema.
+Generate a json payload for the {input_name} schema.
 
 If inputs have format=uri, you should use one of the following media URLs:
 Videos:
@@ -288,6 +321,7 @@ Return a new combination of inputs that you haven't used before. You have previo
             )
         return make_predict_inputs(
             schemas=schemas,
+            train=train,
             only_required=only_required,
             seed=seed,
             fixed_inputs=fixed_inputs,
@@ -310,12 +344,28 @@ Return a new combination of inputs that you haven't used before. You have previo
     return inputs, is_deterministic
 
 
-def predict(model: replicate.model.Model, inputs: dict, timeout_seconds: float):
-    log.vv(f"Running prediction with inputs:\n{json.dumps(inputs, indent=2)}")
-
-    prediction = replicate.predictions.create(
-        version=model.versions.list()[0].id, input=inputs
+def predict(
+    model: replicate.model.Model,
+    train: bool,
+    train_destination: str | None,
+    inputs: dict,
+    timeout_seconds: float,
+):
+    log.vv(
+        f"Running {'training' if train else 'prediction'} with inputs:\n{json.dumps(inputs, indent=2)}"
     )
+
+    if train:
+        version_ref = f"{model.owner}/{model.name}:{model.versions.list()[0].id}"
+        prediction = replicate.trainings.create(
+            version=version_ref,
+            input=inputs,
+            destination=train_destination,
+        )
+    else:
+        prediction = replicate.predictions.create(
+            version=model.versions.list()[0].id, input=inputs
+        )
 
     start_time = time.time()
     while prediction.status not in ["succeeded", "failed", "canceled"]:
@@ -327,7 +377,7 @@ def predict(model: replicate.model.Model, inputs: dict, timeout_seconds: float):
     if prediction.status == "failed":
         raise PredictionFailed(prediction.error)
 
-    log.vv(f"Got output: {str(prediction.output)[:100]}")
+    log.vv(f"Got output: {truncate(prediction.output)}")
 
     return prediction.output
 
@@ -369,6 +419,7 @@ def outputs_match(test_output, output, is_deterministic: bool) -> tuple[bool, st
             )
             if not matches:
                 return False, f"In {key}: {message}"
+        return True, ""
 
     if isinstance(output, list):
         if len(test_output) != len(output):
@@ -379,6 +430,7 @@ def outputs_match(test_output, output, is_deterministic: bool) -> tuple[bool, st
             )
             if not matches:
                 return False, f"At index {i}: {message}"
+        return True, ""
 
     log.warning(f"Unknown type: {type(output)}")
 
@@ -487,6 +539,9 @@ def audios_match(url1: str, url2: str, is_deterministic: bool) -> tuple[bool, st
     # return False, "Audio files are not similar"
 
     # Not yet supported by claude
+    assert url1
+    assert url2
+    assert is_deterministic in [True, False]
     return True, ""
 
 
@@ -502,6 +557,9 @@ def videos_match(url1: str, url2: str, is_deterministic: bool) -> tuple[bool, st
     # return False, "Videos are not similar"
 
     # Not yet supported by claude
+    assert url1
+    assert url2
+    assert is_deterministic in [True, False]
     return True, ""
 
 
@@ -518,3 +576,10 @@ def download(url: str) -> Iterator[Path]:
         yield Path(tmp_file.name)
     finally:
         os.unlink(tmp_file.name)
+
+
+def truncate(s, max_length=500) -> str:
+    s = str(s)
+    if len(s) <= max_length:
+        return s
+    return s[:max_length] + "..."
