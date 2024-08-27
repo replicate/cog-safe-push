@@ -1,7 +1,9 @@
-import pytest
 from unittest.mock import patch
-from cog_safe_push.predict import make_predict_inputs
+
+import pytest
+
 from cog_safe_push.exceptions import AIError
+from cog_safe_push.predict import make_predict_inputs
 
 
 @pytest.fixture
@@ -118,7 +120,8 @@ def test_make_predict_inputs_with_inputs_history(sample_schemas):
             inputs_history=inputs_history,
         )
 
-        assert inputs != inputs_history[0] and inputs != inputs_history[1]
+        assert inputs != inputs_history[0]
+        assert inputs != inputs_history[1]
 
 
 def test_make_predict_inputs_ai_error(sample_schemas):

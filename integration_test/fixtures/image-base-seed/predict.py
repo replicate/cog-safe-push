@@ -1,8 +1,9 @@
+import math
 import os
 import random
-import math
-from PIL import Image, ImageDraw
+
 from cog import BasePredictor, Input, Path
+from PIL import Image, ImageDraw
 
 
 class Predictor(BasePredictor):

@@ -1,5 +1,6 @@
 import pytest
-from cog_safe_push.schema import check_backwards_compatible, IncompatibleSchema
+
+from cog_safe_push.schema import IncompatibleSchemaError, check_backwards_compatible
 
 
 def test_identical_schemas():
@@ -28,7 +29,7 @@ def test_removed_input():
         "Output": {"type": "string"},
     }
     new = {"Input": {"text": {"type": "string"}}, "Output": {"type": "string"}}
-    with pytest.raises(IncompatibleSchema, match="Missing input number"):
+    with pytest.raises(IncompatibleSchemaError, match="Missing input number"):
         check_backwards_compatible(new, old, train=False)
 
 
@@ -36,7 +37,8 @@ def test_changed_input_type():
     old = {"Input": {"value": {"type": "integer"}}, "Output": {"type": "string"}}
     new = {"Input": {"value": {"type": "string"}}, "Output": {"type": "string"}}
     with pytest.raises(
-        IncompatibleSchema, match="Input value has changed type from integer to string"
+        IncompatibleSchemaError,
+        match="Input value has changed type from integer to string",
     ):
         check_backwards_compatible(new, old, train=False)
 
@@ -48,7 +50,7 @@ def test_added_minimum_constraint():
         "Output": {"type": "string"},
     }
     with pytest.raises(
-        IncompatibleSchema, match="Input value has added a minimum constraint"
+        IncompatibleSchemaError, match="Input value has added a minimum constraint"
     ):
         check_backwards_compatible(new, old, train=False)
 
@@ -62,7 +64,9 @@ def test_increased_minimum():
         "Input": {"value": {"type": "integer", "minimum": 1}},
         "Output": {"type": "string"},
     }
-    with pytest.raises(IncompatibleSchema, match="Input value has a higher minimum"):
+    with pytest.raises(
+        IncompatibleSchemaError, match="Input value has a higher minimum"
+    ):
         check_backwards_compatible(new, old, train=False)
 
 
@@ -73,7 +77,7 @@ def test_added_maximum_constraint():
         "Output": {"type": "string"},
     }
     with pytest.raises(
-        IncompatibleSchema, match="Input value has added a maximum constraint"
+        IncompatibleSchemaError, match="Input value has added a maximum constraint"
     ):
         check_backwards_compatible(new, old, train=False)
 
@@ -87,7 +91,9 @@ def test_decreased_maximum():
         "Input": {"value": {"type": "integer", "maximum": 99}},
         "Output": {"type": "string"},
     }
-    with pytest.raises(IncompatibleSchema, match="Input value has a lower maximum"):
+    with pytest.raises(
+        IncompatibleSchemaError, match="Input value has a lower maximum"
+    ):
         check_backwards_compatible(new, old, train=False)
 
 
@@ -103,7 +109,7 @@ def test_changed_choice_type():
         "Output": {"type": "string"},
     }
     with pytest.raises(
-        IncompatibleSchema,
+        IncompatibleSchemaError,
         match="Input choice choices has changed type from string to integer",
     ):
         check_backwards_compatible(new, old, train=False)
@@ -135,7 +141,7 @@ def test_removed_choice():
         "Output": {"type": "string"},
     }
     with pytest.raises(
-        IncompatibleSchema, match="Input choice is missing choices: 'C'"
+        IncompatibleSchemaError, match="Input choice is missing choices: 'C'"
     ):
         check_backwards_compatible(new, old, train=False)
 
@@ -147,7 +153,7 @@ def test_new_required_input():
         "Output": {"type": "string"},
     }
     with pytest.raises(
-        IncompatibleSchema, match="Input new_required is new and is required"
+        IncompatibleSchemaError, match="Input new_required is new and is required"
     ):
         check_backwards_compatible(new, old, train=False)
 
@@ -155,7 +161,7 @@ def test_new_required_input():
 def test_changed_output_type():
     old = {"Input": {}, "Output": {"type": "string"}}
     new = {"Input": {}, "Output": {"type": "integer"}}
-    with pytest.raises(IncompatibleSchema, match="Output has changed type"):
+    with pytest.raises(IncompatibleSchemaError, match="Output has changed type"):
         check_backwards_compatible(new, old, train=False)
 
 
@@ -179,7 +185,7 @@ def test_multiple_incompatibilities():
         "choice": {"type": "string", "enum": ["A", "B"]},
         "Output": {"type": "integer"},
     }
-    with pytest.raises(IncompatibleSchema) as exc_info:
+    with pytest.raises(IncompatibleSchemaError) as exc_info:
         check_backwards_compatible(new, old, train=False)
     error_message = str(exc_info.value)
     assert "Input text has changed type from string to integer" in error_message

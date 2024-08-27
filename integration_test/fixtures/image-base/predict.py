@@ -1,8 +1,8 @@
 # Prediction interface for Cog ⚙️
 # https://github.com/replicate/cog/blob/main/docs/python.md
 
-from PIL import Image
 from cog import BasePredictor, Input, Path
+from PIL import Image
 
 
 class Predictor(BasePredictor):

@@ -6,11 +6,11 @@ class SchemaLintError(Exception):
     pass
 
 
-class IncompatibleSchema(Exception):
+class IncompatibleSchemaError(Exception):
     pass
 
 
-class OutputsDontMatch(Exception):
+class OutputsDontMatchError(Exception):
     pass
 
 
@@ -18,11 +18,11 @@ class FuzzError(Exception):
     pass
 
 
-class PredictionTimeout(Exception):
+class PredictionTimeoutError(Exception):
     pass
 
 
-class PredictionFailed(Exception):
+class PredictionFailedError(Exception):
     pass
 
 

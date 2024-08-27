@@ -1,13 +1,15 @@
 import base64
-import mimetypes
-from pathlib import Path
-import os
 import json
+import mimetypes
+import os
+from pathlib import Path
+from typing import cast
+
 import anthropic
 
+from . import log
 from .exceptions import AIError
 from .retry import retry
-from . import log
 
 
 @retry(3)
@@ -47,7 +49,9 @@ def call(system_prompt: str, prompt: str, files: list[Path] | None = None) -> st
         content = prompt
         log.vvv(f"Claude prompt: {prompt}")
 
-    messages = [{"role": "user", "content": content}]
+    messages: list[anthropic.types.MessageParam] = [
+        {"role": "user", "content": content}
+    ]
 
     response = client.messages.create(
         model=model,
@@ -57,12 +61,15 @@ def call(system_prompt: str, prompt: str, files: list[Path] | None = None) -> st
         stream=False,
         temperature=0.9,
     )
-    output = response.content[0].text
+    content = cast(anthropic.types.TextBlock, response.content[0])
+    output = content.text
     log.vvv(f"Claude response: {output}")
     return output
 
 
-def create_content_list(files: list[Path]):
+def create_content_list(
+    files: list[Path],
+) -> list[anthropic.types.ImageBlockParam | anthropic.types.TextBlockParam]:
     content = []
     for path in files:
         with path.open("rb") as f:

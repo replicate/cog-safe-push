@@ -1,11 +1,12 @@
-import subprocess
 import re
-import replicate
+import subprocess
+
+from replicate.model import Model
 
 from . import log
 
 
-def push(model: replicate.model.Model) -> str:
+def push(model: Model) -> str:
     url = f"r8.im/{model.owner}/{model.name}"
     log.info(f"Pushing to {url}")
     process = subprocess.Popen(
@@ -16,6 +17,7 @@ def push(model: replicate.model.Model) -> str:
     )
 
     sha256_id = None
+    assert process.stdout
     for line in process.stdout:
         log.v(line.rstrip())  # Print output in real-time
         if "latest: digest: sha256:" in line:

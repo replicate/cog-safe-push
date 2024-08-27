@@ -1,4 +1,6 @@
-from setuptools import setup, find_packages
+from pathlib import Path
+
+from setuptools import find_packages, setup
 
 setup(
     name="cog-safe-push",
@@ -18,8 +20,8 @@ setup(
     author="Andreas Jansson",
     author_email="andreas@replicate.com",
     description="Safely push a Cog model, with tests",
-    # long_description=open("README.md").read(),
-    # long_description_content_type="text/markdown",
+    long_description=Path("README.md").read_text(),
+    long_description_content_type="text/markdown",
     url="https://github.com/andreasjansson/cog-safe-push",
     classifiers=[
         "Programming Language :: Python :: 3",

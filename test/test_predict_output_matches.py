@@ -1,13 +1,14 @@
+from unittest.mock import MagicMock, patch
+
 import pytest
-from unittest.mock import patch, MagicMock
 
 from cog_safe_push.predict import (
-    outputs_match,
-    is_url,
-    is_image,
-    is_audio,
-    is_video,
     extensions_match,
+    is_audio,
+    is_image,
+    is_url,
+    is_video,
+    outputs_match,
 )
 
 
@@ -152,14 +153,14 @@ def test_extensions_match():
 
 def test_urls_with_different_extensions():
     result, message = outputs_match(
-        "http://example.com/file1.jpg", "http://example.com/file2.png", True
+        "http://example.com/file1.jpg", "http://example.com/file2.png", False
     )
     assert not result
     assert message == "URL extensions don't match"
 
 
 def test_one_url_one_non_url():
-    result, message = outputs_match("http://example.com/image.jpg", "not_a_url", True)
+    result, message = outputs_match("http://example.com/image.jpg", "not_a_url", False)
     assert not result
     assert message == "Only one output is a URL"
 
@@ -167,6 +168,7 @@ def test_one_url_one_non_url():
 @patch("cog_safe_push.predict.download")
 @patch("PIL.Image.open")
 def test_images_with_different_sizes(mock_image_open, mock_download):
+    assert mock_download
     mock_image1 = MagicMock()
     mock_image2 = MagicMock()
     mock_image1.size = (100, 100)
@@ -174,7 +176,7 @@ def test_images_with_different_sizes(mock_image_open, mock_download):
     mock_image_open.side_effect = [mock_image1, mock_image2]
 
     result, message = outputs_match(
-        "http://example.com/image1.jpg", "http://example.com/image2.jpg", True
+        "http://example.com/image1.jpg", "http://example.com/image2.jpg", False
     )
     assert not result
     assert message == "Image sizes don't match"
@@ -183,7 +185,7 @@ def test_images_with_different_sizes(mock_image_open, mock_download):
 @patch("cog_safe_push.log.warning")
 def test_unknown_url_format(mock_warning):
     result, _ = outputs_match(
-        "http://example.com/unknown.xyz", "http://example.com/unknown.xyz", True
+        "http://example.com/unknown.xyz", "http://example.com/unknown.xyz", False
     )
     assert result
     mock_warning.assert_called_with(
@@ -196,7 +198,7 @@ def test_unknown_output_type(mock_warning):
     class UnknownType:
         pass
 
-    result, _ = outputs_match(UnknownType(), UnknownType(), True)
+    result, _ = outputs_match(UnknownType(), UnknownType(), False)
     assert result
     mock_warning.assert_called_with(f"Unknown type: {type(UnknownType())}")
 
@@ -208,7 +210,7 @@ def test_large_structure_performance():
     large_struct2 = {"key" + str(i): i for i in range(10000)}
 
     start_time = time.time()
-    result, _ = outputs_match(large_struct1, large_struct2, True)
+    result, _ = outputs_match(large_struct1, large_struct2, False)
     end_time = time.time()
 
     assert result
