@@ -572,11 +572,12 @@ def download(url: str) -> Iterator[Path]:
         response.raise_for_status()
         tmp_file.write(response.content)
         tmp_file.flush()
+        tmp_path = Path(tmp_file.name)
 
     try:
-        yield Path(tmp_file.name)
+        yield tmp_path
     finally:
-        tmp_file.unlink()
+        tmp_path.unlink(missing_ok=True)
 
 
 def truncate(s, max_length=500) -> str:
