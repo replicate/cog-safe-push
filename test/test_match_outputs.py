@@ -2,7 +2,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from cog_safe_push.predict import (
+from cog_safe_push.match_outputs import (
     extensions_match,
     is_audio,
     is_image,
@@ -42,7 +42,7 @@ def test_identical_booleans():
 
 
 def test_different_booleans():
-    assert outputs_match(True, False, True) == (False, "Integers aren't identical")
+    assert outputs_match(True, False, True) == (False, "Booleans aren't identical")
 
 
 def test_identical_integers():
@@ -165,7 +165,7 @@ def test_one_url_one_non_url():
     assert message == "Only one output is a URL"
 
 
-@patch("cog_safe_push.predict.download")
+@patch("cog_safe_push.match_outputs.download")
 @patch("PIL.Image.open")
 def test_images_with_different_sizes(mock_image_open, mock_download):
     assert mock_download

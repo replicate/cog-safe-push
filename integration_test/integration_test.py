@@ -8,11 +8,12 @@ import pytest
 import replicate
 from replicate.exceptions import ReplicateException
 
-from cog_safe_push import log, predict
+from cog_safe_push import log
 from cog_safe_push.exceptions import *
 from cog_safe_push.main import cog_safe_push
+from cog_safe_push.predict import AIOutput, ExactStringOutput, ExactURLOutput, TestCase
 
-log.set_verbosity(2)
+log.set_verbosity(3)
 
 
 def test_cog_safe_push():
@@ -25,7 +26,23 @@ def test_cog_safe_push():
 
     try:
         with fixture_dir("base"):
-            cog_safe_push(model_owner, model_name, model_owner, test_model_name, "cpu")
+            cog_safe_push(
+                model_owner,
+                model_name,
+                model_owner,
+                test_model_name,
+                "cpu",
+                test_cases=[
+                    TestCase(
+                        inputs={"text": "world"},
+                        output=ExactStringOutput("hello world"),
+                    ),
+                    TestCase(
+                        inputs={"text": "world"},
+                        output=AIOutput("the text hello world"),
+                    ),
+                ],
+            )
 
         with fixture_dir("same-schema"):
             cog_safe_push(model_owner, model_name, model_owner, test_model_name, "cpu")
@@ -59,23 +76,6 @@ def test_cog_safe_push():
                     fuzz_seconds=120,
                 )
 
-        with fixture_dir("additive-schema-fuzz-error"):
-            cog_safe_push(
-                model_owner,
-                model_name,
-                model_owner,
-                test_model_name,
-                "cpu",
-                fuzz_seconds=120,
-                inputs={
-                    "qux": [
-                        predict.WeightedInputValue(2, 30),
-                        predict.WeightedInputValue(3, 30),
-                        predict.WeightedInputValue(predict.OMITTED_INPUT, 40),
-                    ],
-                },
-            )
-
     finally:
         delete_model(model_owner, model_name)
         delete_model(model_owner, test_model_name)
@@ -98,6 +98,50 @@ def test_cog_safe_push_images():
                 test_model_name,
                 "cpu",
                 fuzz_seconds=60,
+                test_cases=[
+                    TestCase(
+                        inputs={
+                            "image": "https://storage.googleapis.com/cog-safe-push-public/fast-car.jpg",
+                            "width": 1024,
+                            "height": 639,
+                        },
+                        output=ExactURLOutput(
+                            "https://storage.googleapis.com/cog-safe-push-public/fast-car.jpg"
+                        ),
+                    ),
+                    TestCase(
+                        inputs={
+                            "image": "https://storage.googleapis.com/cog-safe-push-public/fast-car.jpg",
+                            "width": 200,
+                            "height": 100,
+                        },
+                        output=AIOutput("An image of a car"),
+                    ),
+                    TestCase(
+                        inputs={
+                            "image": "https://storage.googleapis.com/cog-safe-push-public/fast-car.jpg",
+                            "width": 200,
+                            "height": 100,
+                        },
+                        output=AIOutput("A jpg image"),
+                    ),
+                    TestCase(
+                        inputs={
+                            "image": "https://storage.googleapis.com/cog-safe-push-public/fast-car.jpg",
+                            "width": 200,
+                            "height": 100,
+                        },
+                        output=AIOutput("A image with width 200px and height 100px"),
+                    ),
+                    TestCase(
+                        inputs={
+                            "image": "https://storage.googleapis.com/cog-safe-push-public/fast-car.jpg",
+                            "width": 200,
+                            "height": 100,
+                        },
+                        output=None,
+                    ),
+                ],
             )
 
         with fixture_dir("image-base"):
