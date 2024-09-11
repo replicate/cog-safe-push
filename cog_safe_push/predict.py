@@ -339,6 +339,8 @@ def predict(
             version=model.versions.list()[0].id, input=inputs
         )
 
+    log.vv(f"Prediction URL: https://replicate.com/p/{prediction.id}")
+
     start_time = time.time()
     while prediction.status not in ["succeeded", "failed", "canceled"]:
         time.sleep(0.5)
