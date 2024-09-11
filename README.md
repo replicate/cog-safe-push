@@ -31,13 +31,17 @@ Both the creation of model inputs and comparison of model outputs is handled by 
 ### Full help text
 
 ```
-usage: cog-safe-push [-h] [--test-hardware TEST_HARDWARE]
-                     [--test-model TEST_MODEL] [--test-only]
-                     [-i INPUTS] [-x DISABLED_INPUTS]
+usage: cog-safe-push [-h] [--config CONFIG] [--help-config]
+                     [--test-model TEST_MODEL] [--no-push]
+                     [--test-hardware TEST_HARDWARE]
                      [--no-compare-outputs]
-                     [--fuzz-seconds FUZZ_SECONDS]
-                     [--no-fuzz-user-inputs] [-v]
-                     model
+                     [--predict-timeout PREDICT_TIMEOUT]
+                     [--test-case TEST_CASES]
+                     [--fuzz-fixed-inputs FUZZ_FIXED_INPUTS]
+                     [--fuzz-disabled-inputs FUZZ_DISABLED_INPUTS]
+                     [--fuzz-duration FUZZ_DURATION]
+                     [--fuzz-iterations FUZZ_ITERATIONS] [-v]
+                     [model]
 
 Safely push a Cog model, with tests
 
@@ -46,41 +50,117 @@ positional arguments:
 
 options:
   -h, --help            show this help message and exit
-  --test-hardware TEST_HARDWARE
-                        Hardware to run the test model on. Only
-                        used when creating the test model, if it
-                        doesn't already exist.
+  --config CONFIG       Path to the YAML config file. If --config is not
+                        passed, ./cog-safe-push.yaml will be used, if it
+                        exists. Any arguments you pass in will override
+                        fields on the predict configuration stanza.
+  --help-config         Print a default cog-safe-push.yaml config to
+                        stdout.
   --test-model TEST_MODEL
                         Replicate model to test on, in the format
                         <username>/<model-name>. If omitted,
-                        <model>-test will be used. The test model
-                        is created automatically if it doesn't
-                        exist already
-  --test-only           Only test the model, don't push it to
-                        <model>
-  -i INPUTS, --input INPUTS
-                        Input key-value pairs in the format
-                        <key>=<value>. These will be used when
-                        comparing outputs, as well as during
-                        fuzzing (unless --no-fuzz-user-inputs is
-                        specified)
-  -x DISABLED_INPUTS, --disable-input DISABLED_INPUTS
-                        Don't pass values to these inputs when
-                        comparing outputs or fuzzing
+                        <model>-test will be used. The test model is
+                        created automatically if it doesn't exist
+                        already
+  --no-push             Only test the model, don't push it to <model>
+  --test-hardware TEST_HARDWARE
+                        Hardware to run the test model on. Only used
+                        when creating the test model, if it doesn't
+                        already exist.
   --no-compare-outputs  Don't make predictions to compare that
-                        prediction outputs match
-  --fuzz-seconds FUZZ_SECONDS
-                        Number of seconds to run fuzzing. Set to
-                        0 for no fuzzing
-  --no-fuzz-user-inputs
-                        Don't use -i/--input values when fuzzing,
-                        instead use AI-generated values for every
-                        input
+                        prediction outputs match the current version
+  --predict-timeout PREDICT_TIMEOUT
+                        Timeout (in seconds) for predictions. Default:
+                        300
+  --test-case TEST_CASES
+                        Inputs and expected output that will be used for
+                        testing, you can provide multiple --test-case
+                        options for multiple test cases. The first test
+                        case will be used when comparing outputs to the
+                        current version. Each --test-case is semicolon-
+                        separated key-value pairs in the format
+                        '<key1>=<value1>;<key2=value2>[<output-
+                        checker>]'. <output-checker> can either be
+                        '==<exact-string-or-url>' or '~=<ai-prompt>'. If
+                        you use '==<exact-string-or-url>' then the
+                        output of the model must match exactly the
+                        string or url you specify. If you use '~=<ai-
+                        prompt>' then the AI will verify your output
+                        based on <ai-prompt>. If you omit <output-
+                        checker>, it will just verify that the
+                        prediction doesn't throw an error.
+  --fuzz-fixed-inputs FUZZ_FIXED_INPUTS
+                        Inputs that should have fixed values during
+                        fuzzing. All other non-disabled input values
+                        will be generated by AI. If no test cases are
+                        specified, these will also be used when
+                        comparing outputs to the current version.
+                        Semicolon-separated key-value pairs in the
+                        format '<key1>=<value1>;<key2=value2>' (etc.)
+  --fuzz-disabled-inputs FUZZ_DISABLED_INPUTS
+                        Don't pass values for these inputs during
+                        fuzzing. Semicolon-separated keys in the format
+                        '<key1>;<key2>' (etc.). If no test cases are
+                        specified, these will also be disabled when
+                        comparing outputs to the current version.
+  --fuzz-duration FUZZ_DURATION
+                        Number of seconds to run fuzzing. Set to 0 for
+                        no fuzzing. Default: 300
+  --fuzz-iterations FUZZ_ITERATIONS
+                        Maximum number of iterations to run fuzzing.
+                        Leave blank to run for the full --fuzz-seconds
   -v, --verbose         Increase verbosity level (max 3)
+```
 
+### Using a configuration file
+
+You can use a configuration file instead of passing all arguments on the command line. If you create a file called `cog-safe-push.yaml` in your Cog directory, it will be used. Any command line arguments you pass will override the values in the config file.
+
+```
+$ cog-safe-push --help-config
+model: <model>
+predict:
+  compare_outputs: true
+  fuzz:
+    disabled_inputs: []
+    duration: 300
+    fixed_inputs: {}
+  predict_timeout: 300
+  test_cases:
+  - exact_string: <exact string match>
+    inputs:
+      <input1>: <value1>
+  - inputs:
+      <input2>: <value2>
+    match_url: <match output image against url>
+  - inputs:
+      <input3>: <value3>
+    match_prompt: <match output using AI prompt, e.g. 'an image of a cat'>
+test_hardware: <hardware, e.g. cpu>
+test_model: <test model, or empty to append '-test' to model>
+train:
+  destination: <generated prediction model, e.g. andreasjansson/test-predict. leave
+    blank to append '-dest' to the test model>
+  destination_hardware: <hardware for the created prediction model, e.g. cpu>
+  fuzz:
+    disabled_inputs: []
+    duration: 300
+    fixed_inputs: {}
+  test_cases:
+  - exact_string: <exact string match>
+    inputs:
+      <input1>: <value1>
+  - inputs:
+      <input2>: <value2>
+    match_url: <match output image against url>
+  - inputs:
+      <input3>: <value3>
+    match_prompt: <match output using AI prompt, e.g. 'an image of a cat'>
+  train_timeout: 300
+
+# values between < and > should be edited
 ```
 
 ## Nota bene
 
-* If you can't figure out the right name to use for `--test-hardware`, create the test model manually (setting hardware in the UI), leave `--test-hardware` blank, and set `--test-model=<test-username>/<test-model-name>` instead
 * This is alpha software. If you find a bug, please open an issue!

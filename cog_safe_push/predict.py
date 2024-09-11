@@ -1,17 +1,9 @@
 import json
-import math
-import random
-import tempfile
 import time
-from contextlib import contextmanager
 from dataclasses import dataclass
-from pathlib import Path
-from typing import Any, Iterator
-from urllib.parse import urlparse
+from typing import Any, List
 
 import replicate
-import requests
-from PIL import Image
 from replicate.model import Model
 
 from . import ai, log, schema
@@ -21,23 +13,30 @@ from .exceptions import (
     OutputsDontMatchError,
     PredictionFailedError,
     PredictionTimeoutError,
+    TestCaseFailedError,
 )
+from .match_outputs import is_url, output_matches_prompt, outputs_match, urls_match
 
 
 @dataclass
-class SpecialInputValue:
-    type: str
-
-
-InputValueType = bool | int | float | str | SpecialInputValue
-
-OMITTED_INPUT = SpecialInputValue("omit")
+class ExactStringOutput:
+    string: str
 
 
 @dataclass
-class WeightedInputValue:
-    value: InputValueType
-    weight_percent: float
+class ExactURLOutput:
+    url: str
+
+
+@dataclass
+class AIOutput:
+    prompt: str
+
+
+@dataclass
+class TestCase:
+    inputs: dict[str, Any]
+    output: ExactStringOutput | ExactURLOutput | AIOutput | None
 
 
 def check_outputs_match(
@@ -46,30 +45,21 @@ def check_outputs_match(
     train: bool,
     train_destination: Model | None,
     timeout_seconds: float,
-    inputs: dict[str, list[WeightedInputValue]],
-    disabled_inputs: list[str],
+    inputs: dict[str, Any],
+    is_deterministic: bool,
 ):
-    schemas = schema.get_schemas(model, train=train)
-    predict_inputs, is_deterministic = make_predict_inputs(
-        schemas,
-        train=train,
-        only_required=True,
-        seed=1,
-        fixed_inputs=first_input_per_key(inputs),
-        disabled_inputs=disabled_inputs,
-    )
     test_output = predict(
         model=test_model,
         train=train,
         train_destination=train_destination,
-        inputs=predict_inputs,
+        inputs=inputs,
         timeout_seconds=timeout_seconds,
     )
     output = predict(
         model=model,
         train=train,
         train_destination=train_destination,
-        inputs=predict_inputs,
+        inputs=inputs,
         timeout_seconds=timeout_seconds,
     )
     matches, error = outputs_match(test_output, output, is_deterministic)
@@ -85,7 +75,7 @@ def fuzz_model(
     train_destination: Model | None,
     timeout_seconds: float,
     max_iterations: int | None,
-    inputs: dict[str, list[WeightedInputValue]],
+    fixed_inputs: dict[str, Any],
     disabled_inputs: list[str],
 ):
     start_time = time.time()
@@ -98,7 +88,7 @@ def fuzz_model(
             train=train,
             only_required=False,
             seed=None,
-            fixed_inputs=sample_inputs(inputs),
+            fixed_inputs=fixed_inputs,
             disabled_inputs=disabled_inputs,
             inputs_history=inputs_history,
         )
@@ -127,24 +117,6 @@ def fuzz_model(
             return
 
 
-def first_input_per_key(inputs: dict[str, list[WeightedInputValue]]) -> dict[str, Any]:
-    return {key: values[0].value for key, values in inputs.items()}
-
-
-def sample_inputs(inputs: dict[str, list[WeightedInputValue]]) -> dict[str, Any]:
-    sampled_inputs = {}
-    for key, values in inputs.items():
-        total_weight = sum(v.weight_percent for v in values)
-        random_value = random.uniform(0, total_weight)
-        cumulative_weight = 0
-        for value in values:
-            cumulative_weight += value.weight_percent
-            if random_value <= cumulative_weight:
-                sampled_inputs[key] = value.value
-                break
-    return sampled_inputs
-
-
 def make_predict_inputs(
     schemas: dict,
     train: bool,
@@ -165,8 +137,6 @@ def make_predict_inputs(
         is_deterministic = True
         del properties["seed"]
 
-    omitted_inputs = [k for k, v in fixed_inputs.items() if v == OMITTED_INPUT]
-    disabled_inputs = disabled_inputs + omitted_inputs
     fixed_inputs = {k: v for k, v in fixed_inputs.items() if k not in disabled_inputs}
 
     schemas_str = json.dumps(schemas, indent=2)
@@ -384,200 +354,74 @@ def predict(
     return prediction.output
 
 
-def outputs_match(test_output, output, is_deterministic: bool) -> tuple[bool, str]:
-    if type(test_output) is not type(output):
-        return False, "The types of the outputs don't match"
+def run_test_cases(
+    model: Model,
+    train: bool,
+    train_destination: Model | None,
+    predict_timeout: int,
+    test_cases: List[TestCase],
+):
+    for i, test_case in enumerate(test_cases):
+        log.info(f"Running test case {i + 1}/{len(test_cases)}")
 
-    if isinstance(output, str):
-        if is_url(test_output) and is_url(output):
-            return urls_match(test_output, output, is_deterministic)
-
-        if is_url(test_output) or is_url(output):
-            return False, "Only one output is a URL"
-
-        return strings_match(test_output, output, is_deterministic)
-
-    if isinstance(output, bool):
-        if test_output == output:
-            return True, ""
-        return False, "Integers aren't identical"
-
-    if isinstance(output, int):
-        if test_output == output:
-            return True, ""
-        return False, "Integers aren't identical"
-
-    if isinstance(output, float):
-        if abs(test_output - output) < 0.1:
-            return True, ""
-        return False, "Floats aren't identical"
-
-    if isinstance(output, dict):
-        if test_output.keys() != output.keys():
-            return False, "Dict keys don't match"
-        for key in output:
-            matches, message = outputs_match(
-                test_output[key], output[key], is_deterministic
+        try:
+            output = predict(
+                model=model,
+                train=train,
+                train_destination=train_destination,
+                inputs=test_case.inputs,
+                timeout_seconds=predict_timeout,
             )
-            if not matches:
-                return False, f"In {key}: {message}"
-        return True, ""
+        except PredictionFailedError as e:
+            raise TestCaseFailedError(f"Test case {i + 1} failed: {str(e)}")
 
-    if isinstance(output, list):
-        if len(test_output) != len(output):
-            return False, "List lengths don't match"
-        for i in range(len(output)):
-            matches, message = outputs_match(
-                test_output[i], output[i], is_deterministic
-            )
-            if not matches:
-                return False, f"At index {i}: {message}"
-        return True, ""
+        if test_case.output is None:
+            log.info(f"Test case {i + 1} passed (no output checker)")
+            continue
 
-    log.warning(f"Unknown type: {type(output)}")
-
-    return True, ""
-
-
-def strings_match(s1: str, s2: str, is_deterministic: bool) -> tuple[bool, str]:
-    if is_deterministic:
-        if s1 == s2:
-            return True, ""
-        return False, "Strings aren't the same"
-    fuzzy_match = ai.boolean(
-        f"""
-Have these two strings been generated by the same generative AI model inputs/prompt?
-
-String 1: '{s1}'
-String 2: '{s2}'
-    """
-    )
-    if fuzzy_match:
-        return True, ""
-    return False, "Strings aren't similar"
-
-
-def urls_match(url1: str, url2: str, is_deterministic: bool) -> tuple[bool, str]:
-    # New model must return same extension as previous model
-    if not extensions_match(url1, url2):
-        return False, "URL extensions don't match"
-
-    if is_image(url1):
-        return images_match(url1, url2, is_deterministic)
-
-    if is_audio(url1):
-        return audios_match(url1, url2, is_deterministic)
-
-    if is_video(url1):
-        return videos_match(url1, url2, is_deterministic)
-
-    log.warning(f"Unknown URL format: {url1}")
-    return True, ""
-
-
-def is_image(url: str) -> bool:
-    image_extensions = (".jpg", ".jpeg", ".png", ".gif", ".bmp", ".webp")
-    return url.lower().endswith(image_extensions)
-
-
-def is_audio(url: str) -> bool:
-    audio_extensions = (".mp3", ".wav", ".ogg", ".flac", ".m4a")
-    return url.lower().endswith(audio_extensions)
-
-
-def is_video(url: str) -> bool:
-    video_extensions = (".mp4", ".avi", ".mov", ".wmv", ".flv", ".webm")
-    return url.lower().endswith(video_extensions)
-
-
-def extensions_match(url1: str, url2: str) -> bool:
-    ext1 = Path(urlparse(url1).path).suffix
-    ext2 = Path(urlparse(url2).path).suffix
-    return ext1.lower() == ext2.lower()
-
-
-def is_url(s: str) -> bool:
-    return s.startswith(("http://", "https://"))
-
-
-def images_match(url1: str, url2: str, is_deterministic: bool) -> tuple[bool, str]:
-    with download(url1) as tmp1, download(url2) as tmp2:
-        img1 = Image.open(tmp1)
-        img2 = Image.open(tmp2)
-        if img1.size != img2.size:
-            return False, "Image sizes don't match"
-
-        if is_deterministic:
-            diff = math.sqrt(
-                sum(
-                    sum((c1 - c2) ** 2 for c1, c2 in zip(p1, p2))
-                    for p1, p2 in zip(img1.getdata(), img2.getdata())  # pyright: ignore
+        if isinstance(test_case.output, ExactStringOutput):
+            if output != test_case.output.string:
+                raise TestCaseFailedError(
+                    f"Test case {i + 1} failed: Expected '{test_case.output.string}', got '{truncate(output, 200)}'"
                 )
-            )
+        elif isinstance(test_case.output, ExactURLOutput):
+            output_url = None
+            if isinstance(output, str) and is_url(output):
+                output_url = output
+            if (
+                isinstance(output, list)
+                and len(output) == 1
+                and isinstance(output[0], str)
+                and is_url(output[0])
+            ):
+                output_url = output[0]
+            if output_url is not None:
+                matches, error = urls_match(
+                    test_case.output.url, output_url, is_deterministic=True
+                )
+                if not matches:
+                    raise TestCaseFailedError(
+                        f"Test case {i + 1} failed: URL mismatch. {error}"
+                    )
+            else:
+                raise TestCaseFailedError(
+                    f"Test case {i + 1} failed: Expected URL, got '{truncate(output, 200)}'"
+                )
+        elif isinstance(test_case.output, AIOutput):
+            try:
+                matches, error = output_matches_prompt(output, test_case.output.prompt)
+                if not matches:
+                    raise TestCaseFailedError(f"Test case {i + 1} failed: {error}")
+            except AIError as e:
+                raise TestCaseFailedError(
+                    f"Test case {i + 1} failed: AI error: {str(e)}"
+                )
+        else:
+            raise ValueError(f"Unknown output type: {type(test_case.output)}")
 
-            if diff > 2:  # arbitrary epsilon
-                return False, "Images are not identical"
-            return True, ""
+        log.info(f"Test case {i + 1} passed")
 
-        fuzzy_match = ai.boolean(
-            "These two images have been generated by or modified by an AI model. Is it highly likely that those two predictions of the model had the same inputs?",
-            files=[tmp1, tmp2],
-        )
-        if fuzzy_match:
-            return True, ""
-        return False, "Images are not similar"
-
-
-def audios_match(url1: str, url2: str, is_deterministic: bool) -> tuple[bool, str]:
-    # # TODO: is_deterministic branch
-    # with download(url1) as tmp1, download(url2) as tmp2:
-    #     fuzzy_match = ai.boolean(
-    #         "Have these two audio files been generated by the same inputs to a generative AI model?",
-    #         files=[tmp1, tmp2],
-    #     )
-    # if fuzzy_match:
-    #     return True, ""
-    # return False, "Audio files are not similar"
-
-    # Not yet supported by claude
-    assert url1
-    assert url2
-    assert is_deterministic in [True, False]
-    return True, ""
-
-
-def videos_match(url1: str, url2: str, is_deterministic: bool) -> tuple[bool, str]:
-    # # TODO: is_deterministic branch
-    # with download(url1) as tmp1, download(url2) as tmp2:
-    #     fuzzy_match = ai.boolean(
-    #         "Have these two videos been generated by the same inputs to a generative AI model?",
-    #         files=[tmp1, tmp2],
-    #     )
-    # if fuzzy_match:
-    #     return True, ""
-    # return False, "Videos are not similar"
-
-    # Not yet supported by claude
-    assert url1
-    assert url2
-    assert is_deterministic in [True, False]
-    return True, ""
-
-
-@contextmanager
-def download(url: str) -> Iterator[Path]:
-    suffix = Path(url).suffix
-    with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp_file:
-        response = requests.get(url)
-        response.raise_for_status()
-        tmp_file.write(response.content)
-        tmp_file.flush()
-        tmp_path = Path(tmp_file.name)
-
-    try:
-        yield tmp_path
-    finally:
-        tmp_path.unlink(missing_ok=True)
+    log.info(f"All {len(test_cases)} test cases passed")
 
 
 def truncate(s, max_length=500) -> str:

@@ -2,20 +2,28 @@ import base64
 import json
 import mimetypes
 import os
+import subprocess
 from pathlib import Path
 from typing import cast
 
 import anthropic
 
 from . import log
-from .exceptions import AIError
+from .exceptions import AIError, ArgumentError
 from .retry import retry
 
 
 @retry(3)
-def boolean(prompt: str, files: list[Path] | None = None) -> bool:
+def boolean(
+    prompt: str, files: list[Path] | None = None, include_file_metadata: bool = False
+) -> bool:
     system_prompt = "You only answer YES or NO, and absolutely nothing else. Your outputs will be used in a programmatic context so it's important that you only ever answer with either the string YES or the string NO."
-    output = call(system_prompt=system_prompt, prompt=prompt.strip(), files=files)
+    output = call(
+        system_prompt=system_prompt,
+        prompt=prompt.strip(),
+        files=files,
+        include_file_metadata=include_file_metadata,
+    )
     if output == "YES":
         return True
     if output == "NO":
@@ -33,17 +41,29 @@ def json_object(prompt: str, files: list[Path] | None = None) -> dict:
         raise AIError(f"Failed to parse output as JSON: {output}")
 
 
-def call(system_prompt: str, prompt: str, files: list[Path] | None = None) -> str:
+def call(
+    system_prompt: str,
+    prompt: str,
+    files: list[Path] | None = None,
+    include_file_metadata: bool = False,
+) -> str:
     api_key = os.environ.get("ANTHROPIC_API_KEY")
     if not api_key:
-        raise ValueError("ANTHROPIC_API_KEY is not defined")
+        raise ArgumentError("ANTHROPIC_API_KEY is not defined")
 
     model = "claude-3-5-sonnet-20240620"
     client = anthropic.Anthropic(api_key=api_key)
 
     if files:
         content = create_content_list(files)
+
+        if include_file_metadata:
+            prompt += "\n\nMetadata about attached files:\n"
+            for i, path in enumerate(files):
+                prompt += f"{i}) " + file_info(path) + "\n"
+
         content.append({"type": "text", "text": prompt})
+
         log.vvv(f"Claude prompt with {len(files)} files: {prompt}")
     else:
         content = prompt
@@ -91,3 +111,10 @@ def create_content_list(
         )
 
     return content
+
+
+def file_info(p: Path) -> str:
+    result = subprocess.run(
+        ["file", "-b", str(p)], capture_output=True, text=True, check=True
+    )
+    return result.stdout.strip()

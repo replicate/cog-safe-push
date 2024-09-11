@@ -1,28 +1,40 @@
-class CodeLintError(Exception):
+class CogSafePushError(Exception):
     pass
 
 
-class SchemaLintError(Exception):
+class ArgumentError(CogSafePushError):
     pass
 
 
-class IncompatibleSchemaError(Exception):
+class CodeLintError(CogSafePushError):
     pass
 
 
-class OutputsDontMatchError(Exception):
+class SchemaLintError(CogSafePushError):
     pass
 
 
-class FuzzError(Exception):
+class IncompatibleSchemaError(CogSafePushError):
     pass
 
 
-class PredictionTimeoutError(Exception):
+class OutputsDontMatchError(CogSafePushError):
     pass
 
 
-class PredictionFailedError(Exception):
+class FuzzError(CogSafePushError):
+    pass
+
+
+class PredictionTimeoutError(CogSafePushError):
+    pass
+
+
+class PredictionFailedError(CogSafePushError):
+    pass
+
+
+class TestCaseFailedError(CogSafePushError):
     pass
 
 

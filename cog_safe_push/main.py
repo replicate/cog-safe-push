@@ -1,85 +1,118 @@
 import argparse
 import re
-from collections import defaultdict
+import sys
+from pathlib import Path
+from typing import Any
 
+import pydantic
 import replicate
+import yaml
 from replicate.exceptions import ReplicateError
 from replicate.model import Model
 
 from . import cog, lint, log, predict, schema
+from .config import (
+    DEFAULT_FUZZ_DURATION,
+    DEFAULT_PREDICT_TIMEOUT,
+    Config,
+    FuzzConfig,
+    PredictConfig,
+    TrainConfig,
+)
+from .config import TestCase as ConfigTestCase
+from .exceptions import ArgumentError, CogSafePushError
+from .predict import (
+    AIOutput,
+    ExactStringOutput,
+    ExactURLOutput,
+    TestCase,
+    make_predict_inputs,
+)
+
+DEFAULT_CONFIG_PATH = Path("cog-safe-push.yaml")
 
 
 def main():
+    try:
+        config, no_push = parse_args_and_config()
+        run_config(config, no_push)
+    except CogSafePushError as e:
+        print("💥 " + str(e), file=sys.stderr)
+
+
+def parse_args_and_config() -> tuple[Config, bool]:
     parser = argparse.ArgumentParser(description="Safely push a Cog model, with tests")
+    parser.add_argument(
+        "--config",
+        help="Path to the YAML config file. If --config is not passed, ./cog-safe-push.yaml will be used, if it exists. Any arguments you pass in will override fields on the predict configuration stanza.",
+        type=Path,
+    )
+    parser.add_argument(
+        "--help-config",
+        help="Print a default cog-safe-push.yaml config to stdout.",
+        action="store_true",
+    )
     parser.add_argument(
         "--test-model",
         help="Replicate model to test on, in the format <username>/<model-name>. If omitted, <model>-test will be used. The test model is created automatically if it doesn't exist already",
-        default=None,
+        default=argparse.SUPPRESS,
         type=str,
     )
     parser.add_argument(
-        "--test-only",
+        "--no-push",
         help="Only test the model, don't push it to <model>",
         action="store_true",
     )
     parser.add_argument(
         "--test-hardware",
         help="Hardware to run the test model on. Only used when creating the test model, if it doesn't already exist.",
-        default=None,
+        default=argparse.SUPPRESS,
         type=str,
-    )
-    parser.add_argument(
-        "--train", action="store_true", help="Run test on trainer instead of predictor"
-    )
-    parser.add_argument(
-        "--train-destination",
-        type=str,
-        help="Replicate model for the output of training, in the format <username>/<model-name>. Only used if --train is set. If omitted, <test-model>-test will be used. The model is created automatically if it doesn't exist.",
-    )
-    parser.add_argument(
-        "--train-destination-hardware",
-        help="Hardware to run the train destination model on. Only used if --train is set and if the train destination model doesn't already exist.",
-        default="cpu",
-        type=str,
-    )
-    parser.add_argument(
-        "-i",
-        "--input",
-        help="Input key-value pairs in the format <key>=<value>. These will be used when comparing outputs, as well as during fuzzing. The special value '(omit)' will unset the key. You can specify the same key multiple times, and during fuzzing a random value will be picked. If multiple values are provided, the first value will be used when comparing outputs. You can give weight to values by appending '^<weight>%' to the value. This is particularly useful in combination with '(omit)' during fuzzing, e.g. '-i extra_lora=(omit)^50%' will leave the extra_lora field blank half the time.",
-        action="append",
-        dest="inputs",
-        default=[],
-    )
-    parser.add_argument(
-        "-x",
-        "--disable-input",
-        help="Don't pass values to these inputs when comparing outputs or fuzzing",
-        action="append",
-        dest="disabled_inputs",
-        default=[],
     )
     parser.add_argument(
         "--no-compare-outputs",
-        help="Don't make predictions to compare that prediction outputs match",
-        action="store_true",
+        help="Don't make predictions to compare that prediction outputs match the current version",
+        dest="compare_outputs",
+        action="store_false",
+        default=argparse.SUPPRESS,
     )
     parser.add_argument(
         "--predict-timeout",
-        help="Timeout (in seconds) for predictions when comparing outputs",
+        help=f"Timeout (in seconds) for predictions. Default: {DEFAULT_PREDICT_TIMEOUT}",
         type=int,
-        default=300,
+        default=argparse.SUPPRESS,
     )
     parser.add_argument(
-        "--fuzz-seconds",
-        help="Number of seconds to run fuzzing. Set to 0 for no fuzzing",
+        "--test-case",
+        help="Inputs and expected output that will be used for testing, you can provide multiple --test-case options for multiple test cases. The first test case will be used when comparing outputs to the current version. Each --test-case is semicolon-separated key-value pairs in the format '<key1>=<value1>;<key2=value2>[<output-checker>]'. <output-checker> can either be '==<exact-string-or-url>' or '~=<ai-prompt>'. If you use '==<exact-string-or-url>' then the output of the model must match exactly the string or url you specify. If you use '~=<ai-prompt>' then the AI will verify your output based on <ai-prompt>. If you omit <output-checker>, it will just verify that the prediction doesn't throw an error.",
+        action="append",
+        dest="test_cases",
+        type=parse_test_case,
+        default=argparse.SUPPRESS,
+    )
+    parser.add_argument(
+        "--fuzz-fixed-inputs",
+        help="Inputs that should have fixed values during fuzzing. All other non-disabled input values will be generated by AI. If no test cases are specified, these will also be used when comparing outputs to the current version. Semicolon-separated key-value pairs in the format '<key1>=<value1>;<key2=value2>' (etc.)",
+        type=parse_fuzz_fixed_inputs,
+        default=argparse.SUPPRESS,
+    )
+    parser.add_argument(
+        "--fuzz-disabled-inputs",
+        help="Don't pass values for these inputs during fuzzing. Semicolon-separated keys in the format '<key1>;<key2>' (etc.). If no test cases are specified, these will also be disabled when comparing outputs to the current version. ",
+        type=parse_fuzz_disabled_inputs,
+        default=argparse.SUPPRESS,
+    )
+    parser.add_argument(
+        "--fuzz-duration",
+        help=f"Number of seconds to run fuzzing. Set to 0 for no fuzzing. Default: {DEFAULT_FUZZ_DURATION}",
         type=int,
-        default=300,
+        default=argparse.SUPPRESS,
     )
     parser.add_argument(
         "--fuzz-iterations",
         help="Maximum number of iterations to run fuzzing. Leave blank to run for the full --fuzz-seconds",
         type=int,
-        default=None,
+        default=argparse.SUPPRESS,
     )
     parser.add_argument(
         "-v",
@@ -88,50 +121,118 @@ def main():
         default=0,
         help="Increase verbosity level (max 3)",
     )
-
-    parser.add_argument("model", help="Model in the format <owner>/<model-name>")
+    parser.add_argument(
+        "model", help="Model in the format <owner>/<model-name>", nargs="?"
+    )
     args = parser.parse_args()
 
     if args.verbose > 3:
-        raise ValueError("You can use a maximum of 3 -v")
+        raise ArgumentError("You can use a maximum of 3 -v")
     log.set_verbosity(args.verbose)
 
-    model_owner, model_name = parse_model(args.model)
-    if args.test_model:
-        test_model_owner, test_model_name = parse_model(args.test_model)
-    else:
-        test_model_owner = model_owner
-        test_model_name = model_name + "-test"
+    if args.help_config:
+        print_help_config()
+        sys.exit(0)
 
-    if args.train_destination and not args.train:
-        raise ValueError("--train-destination should only be set if --train is set")
-    if args.train and args.train_destination:
-        train_destination_owner, train_destination_name = parse_model(
-            args.train_destination
+    config_path = None
+    config = None
+    if args.config:
+        config_path = args.config
+    elif DEFAULT_CONFIG_PATH.exists():
+        config_path = DEFAULT_CONFIG_PATH
+
+    if config_path is not None:
+        with config_path.open() as f:
+            try:
+                config_dict = yaml.safe_load(f)
+                config = Config.model_validate(config_dict)
+            except (pydantic.ValidationError, yaml.YAMLError) as e:
+                raise ArgumentError(str(e))
+
+    else:
+        if not args.model:
+            raise ArgumentError("Model was not specified")
+        config = Config(model=args.model, predict=PredictConfig(fuzz=FuzzConfig()))
+
+    config.override("model", args, "model")
+    config.override("test_model", args, "test_model")
+    config.override("test_hardware", args, "test_hardware")
+    config.predict_override("test_cases", args, "test_cases")
+    config.predict_override("compare_outputs", args, "compare_outputs")
+    config.predict_override("predict_timeout", args, "predict_timeout")
+    config.predict_fuzz_override("fixed_inputs", args, "fuzz_fixed_inputs")
+    config.predict_fuzz_override("disabled_inputs", args, "fuzz_disabled_inputs")
+    config.predict_fuzz_override("duration", args, "fuzz_duration")
+    config.predict_fuzz_override("iterations", args, "fuzz_iterations")
+
+    if not config.test_model:
+        config.test_model = config.model + "-test"
+
+    return config, args.no_push
+
+
+def run_config(config: Config, no_push: bool):
+    assert config.test_model
+
+    model_owner, model_name = parse_model(config.model)
+    test_model_owner, test_model_name = parse_model(config.test_model)
+
+    if config.train:
+        # Don't push twice in case train and predict are both defined
+        has_predict = config.predict is not None
+        train_no_push = no_push or has_predict
+
+        if not config.train.destination:
+            config.train.destination = config.test_model + "-dest"
+        destination_owner, destination_name = parse_model(config.train.destination)
+        if config.train.fuzz:
+            fuzz = config.train.fuzz
+        else:
+            fuzz = FuzzConfig(
+                fixed_inputs={}, disabled_inputs=[], duration=0, iterations=0
+            )
+        cog_safe_push(
+            model_owner=model_owner,
+            model_name=model_name,
+            test_model_owner=test_model_owner,
+            test_model_name=test_model_name,
+            no_push=train_no_push,
+            test_hardware=config.test_hardware,
+            train=True,
+            train_destination_owner=destination_owner,
+            train_destination_name=destination_name,
+            do_compare_outputs=False,
+            predict_timeout=config.train.train_timeout,
+            test_cases=config_test_cases_to_test_cases(config.train.test_cases),
+            fuzz_fixed_inputs=fuzz.fixed_inputs,
+            fuzz_disabled_inputs=fuzz.disabled_inputs,
+            fuzz_seconds=fuzz.duration,
+            fuzz_iterations=fuzz.iterations,
         )
-    else:
-        train_destination_owner = test_model_owner
-        train_destination_name = test_model_name + "-dest"
 
-    inputs = parse_inputs(args.inputs)
-
-    cog_safe_push(
-        model_owner=model_owner,
-        model_name=model_name,
-        test_model_owner=test_model_owner,
-        test_model_name=test_model_name,
-        test_only=args.test_only,
-        test_hardware=args.test_hardware,
-        train=args.train,
-        train_destination_owner=train_destination_owner,
-        train_destination_name=train_destination_name,
-        inputs=inputs,
-        disabled_inputs=args.disabled_inputs,
-        do_compare_outputs=not args.no_compare_outputs,
-        predict_timeout=args.predict_timeout,
-        fuzz_seconds=args.fuzz_seconds,
-        fuzz_iterations=args.fuzz_iterations,
-    )
+    if config.predict:
+        if config.predict.fuzz:
+            fuzz = config.predict.fuzz
+        else:
+            fuzz = FuzzConfig(
+                fixed_inputs={}, disabled_inputs=[], duration=0, iterations=0
+            )
+        cog_safe_push(
+            model_owner=model_owner,
+            model_name=model_name,
+            test_model_owner=test_model_owner,
+            test_model_name=test_model_name,
+            no_push=no_push,
+            test_hardware=config.test_hardware,
+            train=False,
+            do_compare_outputs=config.predict.compare_outputs,
+            predict_timeout=config.predict.predict_timeout,
+            test_cases=config_test_cases_to_test_cases(config.predict.test_cases),
+            fuzz_fixed_inputs=fuzz.fixed_inputs,
+            fuzz_disabled_inputs=fuzz.disabled_inputs,
+            fuzz_seconds=fuzz.duration,
+            fuzz_iterations=fuzz.iterations,
+        )
 
 
 def cog_safe_push(
@@ -140,22 +241,23 @@ def cog_safe_push(
     test_model_owner: str,
     test_model_name: str,
     test_hardware: str,
-    test_only: bool = False,
+    no_push: bool = False,
     train: bool = False,
     train_destination_owner: str | None = None,
     train_destination_name: str | None = None,
     train_destination_hardware: str = "cpu",
-    inputs: dict = {},
-    disabled_inputs: list = [],
     do_compare_outputs: bool = True,
     predict_timeout: int = 300,
+    test_cases: list[TestCase] = [],
+    fuzz_fixed_inputs: dict = {},
+    fuzz_disabled_inputs: list = [],
     fuzz_seconds: int = 30,
     fuzz_iterations: int | None = None,
 ):
     if model_owner == test_model_owner and model_name == test_model_name:
-        raise ValueError("Can't use the same model as test model")
+        raise ArgumentError("Can't use the same model as test model")
 
-    if test_only:
+    if no_push:
         log.info(
             f"Running in test-only mode, no model will be pushed to {model_owner}/{model_name}"
         )
@@ -165,12 +267,14 @@ def cog_safe_push(
     else:
         lint.lint_predict()
 
-    if set(inputs.keys()) & set(disabled_inputs):
-        raise ValueError("--input keys must not be present in --disabled-inputs")
+    if set(fuzz_fixed_inputs.keys()) & set(fuzz_disabled_inputs):
+        raise ArgumentError(
+            "--fuzz-fixed-inputs keys must not be present in --fuzz-disabled-inputs"
+        )
 
     model = get_model(model_owner, model_name)
     if not model:
-        raise ValueError(
+        raise ArgumentError(
             f"You need to create the model {model_owner}/{model_name} before running this script"
         )
 
@@ -204,15 +308,38 @@ def cog_safe_push(
             log.info(
                 "Checking that outputs match between existing version and test version"
             )
+            if test_cases:
+                compare_inputs = test_cases[0].inputs
+                is_deterministic = "seed" in compare_inputs
+            else:
+                schemas = schema.get_schemas(model, train=train)
+                compare_inputs, is_deterministic = make_predict_inputs(
+                    schemas,
+                    train=train,
+                    only_required=True,
+                    seed=1,
+                    fixed_inputs=fuzz_fixed_inputs,
+                    disabled_inputs=fuzz_disabled_inputs,
+                )
             predict.check_outputs_match(
                 test_model=test_model,
                 model=model,
                 train=train,
                 train_destination=train_destination,
                 timeout_seconds=predict_timeout,
-                inputs=inputs,
-                disabled_inputs=disabled_inputs,
+                inputs=compare_inputs,
+                is_deterministic=is_deterministic,
             )
+
+    if test_cases:
+        log.info("Running test cases")
+        predict.run_test_cases(
+            model=test_model,
+            train=train,
+            train_destination=train_destination,
+            predict_timeout=predict_timeout,
+            test_cases=test_cases,
+        )
 
     if fuzz_seconds > 0:
         log.info("Fuzzing test model")
@@ -222,58 +349,31 @@ def cog_safe_push(
             train_destination=train_destination,
             timeout_seconds=fuzz_seconds,
             max_iterations=fuzz_iterations,
-            inputs=inputs,
-            disabled_inputs=disabled_inputs,
+            fixed_inputs=fuzz_fixed_inputs,
+            disabled_inputs=fuzz_disabled_inputs,
         )
 
     log.info("Tests were successful ✨")
 
-    if not test_only:
+    if not no_push:
         log.info("Pushing model...")
         cog.push(model)
 
 
-def parse_inputs(inputs_list: list[str]) -> dict[str, list[predict.WeightedInputValue]]:
-    input_values = defaultdict(list)
-    input_weights = defaultdict(list)
+def parse_inputs(inputs_list: list[str]) -> dict[str, Any]:
+    inputs = {}
     for input_str in inputs_list:
         try:
-            key, weighted_value_str = input_str.strip().split("=", 1)
-            value_str, weight_percent = parse_input_weight_percent(weighted_value_str)
+            key, value_str = input_str.strip().split("=", 1)
             value = parse_input_value(value_str.strip())
-            input_values[key.strip()].append(value)
-            input_weights[key.strip()].append(weight_percent)
+            inputs[key] = value
         except ValueError:
-            raise ValueError(f"Invalid input format: {input_str}")
+            raise ArgumentError(f"Invalid input format: {input_str}")
 
-    return make_weighted_inputs(input_values, input_weights)
-
-
-def make_weighted_inputs(
-    input_values: dict[str, list[str]], input_weights: dict[str, list[float]]
-) -> dict[str, list[predict.WeightedInputValue]]:
-    weighted_inputs = {}
-    for key, values in input_values.items():
-        weights = input_weights[key]
-        weight_sum = sum(w for w in weights if w is not None)
-        remaining_weight = 100 - weight_sum
-        num_unweighted = len([w for w in weights if w is None])
-        if num_unweighted > 0:
-            unweighted_weight = remaining_weight / num_unweighted
-            for i, weight in enumerate(weights):
-                if weight is None:
-                    weights[i] = unweighted_weight
-        weighted_inputs[key] = [
-            predict.WeightedInputValue(value=value, weight_percent=weight)
-            for value, weight in zip(values, weights)
-        ]
-    return weighted_inputs
+    return inputs
 
 
-def parse_input_value(value: str) -> predict.InputValueType:
-    if value == "(omit)":
-        return predict.OMITTED_INPUT
-
+def parse_input_value(value: str) -> Any:
     if value.lower() in ("true", "false"):
         return value.lower() == "true"
 
@@ -291,32 +391,12 @@ def parse_input_value(value: str) -> predict.InputValueType:
     return value
 
 
-def parse_input_weight_percent(value_str: str) -> tuple[str, float | None]:
-    parts = value_str.rsplit("^")
-    if len(parts) == 2 and value_str.endswith("%"):
-        percent_str = parts[1][:-1]
-        try:
-            percent = float(percent_str)
-        except ValueError:
-            raise ValueError(f"Failed to parse input value weight {percent_str}")
-        if percent <= 0:
-            raise ValueError(
-                f"Invalid value weight {percent_str}, must be greater than 0"
-            )
-        if percent > 100:
-            raise ValueError(
-                f"Invalid value weight {percent_str}, must be less or equal to 100"
-            )
-        return parts[0], percent
-    return value_str, None
-
-
 def get_or_create_model(model_owner, model_name, hardware) -> Model:
     model = get_model(model_owner, model_name)
 
     if not model:
         if not hardware:
-            raise ValueError(
+            raise ArgumentError(
                 f"Model {model_owner}/{model_name} doesn't exist, and you didn't specify hardware"
             )
 
@@ -344,9 +424,117 @@ def parse_model(model_owner_name: str) -> tuple[str, str]:
     pattern = r"^([a-z0-9_-]+)/([a-z0-9-]+)$"
     match = re.match(pattern, model_owner_name)
     if not match:
-        raise ValueError(f"Invalid model URL format: {model_owner_name}")
+        raise ArgumentError(f"Invalid model URL format: {model_owner_name}")
     owner, name = match.groups()
     return owner, name
+
+
+def parse_fuzz_fixed_inputs(
+    fuzz_fixed_inputs_str: str,
+) -> dict[str, Any]:
+    if not fuzz_fixed_inputs_str:
+        return {}
+    return parse_inputs(
+        [
+            f"{k}={v}"
+            for k, v in (pair.split("=") for pair in fuzz_fixed_inputs_str.split(";"))
+        ]
+    )
+
+
+def parse_fuzz_disabled_inputs(fuzz_disabled_inputs_str: str) -> list[str]:
+    return fuzz_disabled_inputs_str.split(";") if fuzz_disabled_inputs_str else []
+
+
+def parse_test_case(test_case_str: str) -> ConfigTestCase:
+    if "==" in test_case_str or "~=" in test_case_str:
+        inputs_str, op, output_str = re.split("(==|~=)", test_case_str, 1)
+    else:
+        inputs_str = test_case_str
+        op = output_str = None
+    test_case = ConfigTestCase(
+        inputs=parse_inputs([pair for pair in inputs_str.split(";") if pair])
+    )
+
+    if op is not None and output_str is not None:
+        if op == "==":
+            if output_str.startswith("http://") or output_str.startswith("https://"):
+                test_case.match_url = output_str
+            else:
+                test_case.exact_string = output_str
+        else:
+            test_case.match_prompt = output_str
+
+    return test_case
+
+
+def config_test_cases_to_test_cases(
+    config_test_cases: list[ConfigTestCase],
+) -> list[TestCase]:
+    test_cases = []
+    for tc in config_test_cases:
+        output = None
+        if tc.exact_string:
+            output = ExactStringOutput(string=tc.exact_string)
+        elif tc.match_url:
+            output = ExactURLOutput(url=tc.match_url)
+        elif tc.match_prompt:
+            output = AIOutput(prompt=tc.match_prompt)
+
+        test_case = TestCase(inputs=tc.inputs, output=output)
+        test_cases.append(test_case)
+
+    return test_cases
+
+
+def print_help_config():
+    print(
+        yaml.dump(
+            Config(
+                model="<model>",
+                test_model="<test model, or empty to append '-test' to model>",
+                test_hardware="<hardware, e.g. cpu>",
+                predict=PredictConfig(
+                    fuzz=FuzzConfig(),
+                    test_cases=[
+                        ConfigTestCase(
+                            inputs={"<input1>": "<value1>"},
+                            exact_string="<exact string match>",
+                        ),
+                        ConfigTestCase(
+                            inputs={"<input2>": "<value2>"},
+                            match_url="<match output image against url>",
+                        ),
+                        ConfigTestCase(
+                            inputs={"<input3>": "<value3>"},
+                            match_prompt="<match output using AI prompt, e.g. 'an image of a cat'>",
+                        ),
+                    ],
+                ),
+                train=TrainConfig(
+                    destination="<generated prediction model, e.g. andreasjansson/test-predict. leave blank to append '-dest' to the test model>",
+                    destination_hardware="<hardware for the created prediction model, e.g. cpu>",
+                    fuzz=FuzzConfig(),
+                    test_cases=[
+                        ConfigTestCase(
+                            inputs={"<input1>": "<value1>"},
+                            exact_string="<exact string match>",
+                        ),
+                        ConfigTestCase(
+                            inputs={"<input2>": "<value2>"},
+                            match_url="<match output image against url>",
+                        ),
+                        ConfigTestCase(
+                            inputs={"<input3>": "<value3>"},
+                            match_prompt="<match output using AI prompt, e.g. 'an image of a cat'>",
+                        ),
+                    ],
+                ),
+            ).model_dump(exclude_none=True),
+            default_flow_style=False,
+        )
+    )
+    print("# values between < and > should be edited")
 
 
 if __name__ == "__main__":

@@ -11,6 +11,7 @@ setup(
         "anthropic>=0.21.3,<1",
         "pillow>=10.0.0",
         "ruff>=0.6.1,<1",
+        "pydantic>=2,<3",
     ],
     entry_points={
         "console_scripts": [
