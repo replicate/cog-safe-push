@@ -177,6 +177,9 @@ def run_config(config: Config, no_push: bool):
     model_owner, model_name = parse_model(config.model)
     test_model_owner, test_model_name = parse_model(config.test_model)
 
+    # small optimization
+    reuse_test_model = None
+
     if config.train:
         # Don't push twice in case train and predict are both defined
         has_predict = config.predict is not None
@@ -191,7 +194,7 @@ def run_config(config: Config, no_push: bool):
             fuzz = FuzzConfig(
                 fixed_inputs={}, disabled_inputs=[], duration=0, iterations=0
             )
-        cog_safe_push(
+        reuse_test_model = cog_safe_push(
             model_owner=model_owner,
             model_name=model_name,
             test_model_owner=test_model_owner,
@@ -232,6 +235,7 @@ def run_config(config: Config, no_push: bool):
             fuzz_disabled_inputs=fuzz.disabled_inputs,
             fuzz_seconds=fuzz.duration,
             fuzz_iterations=fuzz.iterations,
+            reuse_test_model=reuse_test_model,
         )
 
 
@@ -253,6 +257,7 @@ def cog_safe_push(
     fuzz_disabled_inputs: list = [],
     fuzz_seconds: int = 30,
     fuzz_iterations: int | None = None,
+    reuse_test_model: Model | None = None,
 ):
     if model_owner == test_model_owner and model_name == test_model_name:
         raise ArgumentError("Can't use the same model as test model")
@@ -278,7 +283,12 @@ def cog_safe_push(
             f"You need to create the model {model_owner}/{model_name} before running this script"
         )
 
-    test_model = get_or_create_model(test_model_owner, test_model_name, test_hardware)
+    if reuse_test_model:
+        test_model = reuse_test_model
+    else:
+        test_model = get_or_create_model(
+            test_model_owner, test_model_name, test_hardware
+        )
 
     if train:
         train_destination = get_or_create_model(
@@ -287,12 +297,13 @@ def cog_safe_push(
     else:
         train_destination = None
 
-    log.info("Pushing test model")
-    pushed_version_id = cog.push(test_model)
-    test_model.reload()
-    assert (
-        test_model.versions.list()[0].id == pushed_version_id
-    ), f"Pushed version ID {pushed_version_id} doesn't match latest version on {test_model_owner}/{test_model_name}: {test_model.versions.list()[0].id}"
+    if not reuse_test_model:
+        log.info("Pushing test model")
+        pushed_version_id = cog.push(test_model)
+        test_model.reload()
+        assert (
+            test_model.versions.list()[0].id == pushed_version_id
+        ), f"Pushed version ID {pushed_version_id} doesn't match latest version on {test_model_owner}/{test_model_name}: {test_model.versions.list()[0].id}"
 
     log.info("Linting test model schema")
     schema.lint(test_model, train=train)
@@ -358,6 +369,8 @@ def cog_safe_push(
     if not no_push:
         log.info("Pushing model...")
         cog.push(model)
+
+    return test_model  # for reuse
 
 
 def parse_inputs(inputs_list: list[str]) -> dict[str, Any]:

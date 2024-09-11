@@ -1,6 +1,6 @@
 import argparse
 
-from pydantic import BaseModel, model_validator
+from pydantic import BaseModel, ConfigDict, model_validator
 
 from .exceptions import ArgumentError
 
@@ -11,6 +11,8 @@ InputScalar = bool | int | float | str | list[int] | list[str] | list[float]
 
 
 class TestCase(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     inputs: dict[str, InputScalar]
     exact_string: str | None = None
     match_url: str | None = None
@@ -30,6 +32,8 @@ class TestCase(BaseModel):
 
 
 class FuzzConfig(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     fixed_inputs: dict[str, InputScalar] = {}
     disabled_inputs: list[str] = []
     duration: int = DEFAULT_FUZZ_DURATION
@@ -37,6 +41,8 @@ class FuzzConfig(BaseModel):
 
 
 class PredictConfig(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     compare_outputs: bool = True
     predict_timeout: int = DEFAULT_PREDICT_TIMEOUT
     test_cases: list[TestCase] = []
@@ -44,6 +50,8 @@ class PredictConfig(BaseModel):
 
 
 class TrainConfig(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     destination: str | None = None
     destination_hardware: str = "cpu"
     train_timeout: int = DEFAULT_PREDICT_TIMEOUT
@@ -52,6 +60,8 @@ class TrainConfig(BaseModel):
 
 
 class Config(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     model: str
     test_model: str | None = None
     test_hardware: str = "cpu"
