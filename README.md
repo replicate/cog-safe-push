@@ -8,6 +8,14 @@ Safely push a Cog model version by making sure it works and is backwards-compati
 1. Install Cog and `cog login`
 1. If you're running this from a cloned source, `pip install .` in the `cog-safe-push` directory.
 
+## Installation
+
+This package is not on PyPI yet, but you can install it directly from GitHub using pip:
+
+```
+pip install git+https://github.com/replicate/cog-safe-push.git
+```
+
 ## Usage
 
 To safely push a model to Replicate, run this inside your Cog directory:
