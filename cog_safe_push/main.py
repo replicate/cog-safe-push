@@ -38,6 +38,7 @@ def main():
         run_config(config, no_push)
     except CogSafePushError as e:
         print("💥 " + str(e), file=sys.stderr)
+        sys.exit(1)
 
 
 def parse_args_and_config() -> tuple[Config, bool]:
