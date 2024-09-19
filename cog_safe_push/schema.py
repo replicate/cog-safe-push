@@ -1,3 +1,4 @@
+from replicate.exceptions import ReplicateError
 from replicate.model import Model
 
 from .exceptions import IncompatibleSchemaError, SchemaLintError
@@ -7,7 +8,7 @@ def lint(model: Model, train: bool):
     errors = []
 
     input_name = "TrainingInput" if train else "Input"
-    schema = model.versions.list()[0].openapi_schema
+    schema = get_openapi_schema(model)
     properties = schema["components"]["schemas"][input_name]["properties"]
     for name, spec in properties.items():
         description = spec.get("description")
@@ -104,8 +105,19 @@ def check_backwards_compatible(
         )
 
 
+def get_openapi_schema(model: Model) -> dict:
+    try:
+        return model.versions.list()[0].openapi_schema
+    except ReplicateError as e:
+        if e.status == 404:
+            # Assume it's an official model
+            assert model.latest_version
+            return model.latest_version.openapi_schema
+        raise
+
+
 def get_schemas(model, train: bool):
-    schemas = model.versions.list()[0].openapi_schema["components"]["schemas"]
+    schemas = get_openapi_schema(model)["components"]["schemas"]
     unnecessary_keys = [
         "HTTPValidationError",
         "PredictionRequest",

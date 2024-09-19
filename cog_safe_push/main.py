@@ -302,14 +302,32 @@ def cog_safe_push(
         log.info("Pushing test model")
         pushed_version_id = cog.push(test_model)
         test_model.reload()
-        assert (
-            test_model.versions.list()[0].id == pushed_version_id
-        ), f"Pushed version ID {pushed_version_id} doesn't match latest version on {test_model_owner}/{test_model_name}: {test_model.versions.list()[0].id}"
+        try:
+            assert (
+                test_model.versions.list()[0].id == pushed_version_id
+            ), f"Pushed version ID {pushed_version_id} doesn't match latest version on {test_model_owner}/{test_model_name}: {test_model.versions.list()[0].id}"
+        except ReplicateError as e:
+            if e.status == 404:
+                # Assume it's an official model
+                # If it's an official model, can't check that the version matches
+                pass
+            else:
+                raise
 
     log.info("Linting test model schema")
     schema.lint(test_model, train=train)
 
-    if model.latest_version:
+    model_has_versions = False
+    try:
+        model_has_versions = bool(model.versions.list())
+    except ReplicateError as e:
+        if e.status == 404:
+            # Assume it's an official model
+            model_has_versions = bool(model.latest_version)
+        else:
+            raise
+
+    if model_has_versions:
         log.info("Checking schema backwards compatibility")
         test_model_schemas = schema.get_schemas(test_model, train=train)
         model_schemas = schema.get_schemas(model, train=train)
