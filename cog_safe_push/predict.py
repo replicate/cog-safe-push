@@ -4,6 +4,7 @@ from dataclasses import dataclass
 from typing import Any, List
 
 import replicate
+from replicate.exceptions import ReplicateError
 from replicate.model import Model
 
 from . import ai, log, schema
@@ -335,9 +336,16 @@ def predict(
             destination=f"{train_destination.owner}/{train_destination.name}",
         )
     else:
-        prediction = replicate.predictions.create(
-            version=model.versions.list()[0].id, input=inputs
-        )
+        try:
+            prediction = replicate.predictions.create(
+                version=model.versions.list()[0].id, input=inputs
+            )
+        except ReplicateError as e:
+            if e.status == 404:
+                # Assume it's an official model
+                prediction = replicate.predictions.create(model=model, input=inputs)
+            else:
+                raise
 
     log.vv(f"Prediction URL: https://replicate.com/p/{prediction.id}")
 
