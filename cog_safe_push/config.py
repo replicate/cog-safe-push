@@ -67,6 +67,7 @@ class Config(BaseModel):
     test_hardware: str = "cpu"
     predict: PredictConfig | None = None
     train: TrainConfig | None = None
+    dockerfile: str | None = None
 
     def override(self, field: str, args: argparse.Namespace, arg: str):
         if hasattr(args, arg) and getattr(args, arg) is not None:

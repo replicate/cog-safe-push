@@ -237,6 +237,7 @@ def run_config(config: Config, no_push: bool):
             fuzz_seconds=fuzz.duration,
             fuzz_iterations=fuzz.iterations,
             reuse_test_model=reuse_test_model,
+            dockerfile=config.dockerfile,
         )
 
 
@@ -259,6 +260,7 @@ def cog_safe_push(
     fuzz_seconds: int = 30,
     fuzz_iterations: int | None = None,
     reuse_test_model: Model | None = None,
+    dockerfile: str | None = None,
 ):
     if model_owner == test_model_owner and model_name == test_model_name:
         raise ArgumentError("Can't use the same model as test model")
@@ -300,7 +302,7 @@ def cog_safe_push(
 
     if not reuse_test_model:
         log.info("Pushing test model")
-        pushed_version_id = cog.push(test_model)
+        pushed_version_id = cog.push(test_model, dockerfile)
         test_model.reload()
         try:
             assert (
@@ -387,7 +389,7 @@ def cog_safe_push(
 
     if not no_push:
         log.info("Pushing model...")
-        cog.push(model)
+        cog.push(model, dockerfile)
 
     return test_model  # for reuse
 
@@ -453,7 +455,7 @@ def get_model(owner, name) -> Model | None:
 
 
 def parse_model(model_owner_name: str) -> tuple[str, str]:
-    pattern = r"^([a-z0-9_-]+)/([a-z0-9-]+)$"
+    pattern = r"^([a-z0-9_-]+)/([a-z0-9-.]+)$"
     match = re.match(pattern, model_owner_name)
     if not match:
         raise ArgumentError(f"Invalid model URL format: {model_owner_name}")
