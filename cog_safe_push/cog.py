@@ -6,11 +6,14 @@ from replicate.model import Model
 from . import log
 
 
-def push(model: Model) -> str:
+def push(model: Model, dockerfile: str | None) -> str:
     url = f"r8.im/{model.owner}/{model.name}"
     log.info(f"Pushing to {url}")
+    cmd = ["cog", "push", url]
+    if dockerfile:
+        cmd += ["--dockerfile", dockerfile]
     process = subprocess.Popen(
-        ["cog", "push", url],
+        cmd,
         stdout=subprocess.PIPE,
         stderr=subprocess.STDOUT,
         universal_newlines=True,
