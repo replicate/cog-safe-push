@@ -99,6 +99,8 @@ def create_content_list(
         if mime_type is None:
             mime_type = "application/octet-stream"
 
+        log.v(f"Detected mime type {mime_type} for {path}")
+
         content.append(
             {
                 "type": "image",  # only image is supported
