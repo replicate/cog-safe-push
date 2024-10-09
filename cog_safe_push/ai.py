@@ -95,11 +95,10 @@ def create_content_list(
         with path.open("rb") as f:
             encoded_string = base64.b64encode(f.read()).decode()
 
-        mime_type, _ = mimetypes.guess_type(path)
+        mime_type, _ = mimetypes.guess_type(path, strict=False)
         if mime_type is None:
             mime_type = "application/octet-stream"
-
-        log.v(f"Detected mime type {mime_type} for {path}")
+            log.v(f"Detected mime type {mime_type} for {path}")
 
         content.append(
             {
