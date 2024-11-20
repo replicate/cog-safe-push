@@ -12,6 +12,7 @@ setup(
         "pillow>=10.0.0",
         "ruff>=0.6.1,<1",
         "pydantic>=2,<3",
+        "PyYAML>=6,<7",
     ],
     entry_points={
         "console_scripts": [
