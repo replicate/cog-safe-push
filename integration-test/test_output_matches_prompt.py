@@ -1,8 +1,8 @@
-import pytest
 from pathlib import Path
-from cog_safe_push.match_outputs import output_matches_prompt
-from cog_safe_push import log
 
+import pytest
+
+from cog_safe_push.match_outputs import output_matches_prompt
 
 # log.set_verbosity(3)
 
@@ -68,22 +68,22 @@ def get_captioned_images(
 
 
 @pytest.mark.parametrize(
-    "file_url,prompt",
+    ("file_url", "prompt"),
     get_captioned_images(positive_images),
     ids=lambda x: Path(x[0]).name if isinstance(x, tuple) else x,
 )
-def test_image_output_matches_prompt_positive(file_url: str, prompt: str):
+async def test_image_output_matches_prompt_positive(file_url: str, prompt: str):
     """Test that images in the positive directory match their prompts."""
-    matches, message = output_matches_prompt(file_url, prompt)
+    matches, message = await output_matches_prompt(file_url, prompt)
     assert matches, f"Image should match prompt '{prompt}'. Error: {message}"
 
 
 @pytest.mark.parametrize(
-    "file_url,prompt",
+    ("file_url", "prompt"),
     get_captioned_images(negative_images),
     ids=lambda x: Path(x[0]).name if isinstance(x, tuple) else x,
 )
-def test_image_output_matches_prompt_negative(file_url: str, prompt: str):
+async def test_image_output_matches_prompt_negative(file_url: str, prompt: str):
     """Test that images in the negative directory don't match their prompts."""
-    matches, _ = output_matches_prompt(file_url, prompt)
+    matches, _ = await output_matches_prompt(file_url, prompt)
     assert not matches, f"Image should not match prompt '{prompt}'"

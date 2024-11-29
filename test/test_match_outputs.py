@@ -151,23 +151,25 @@ def test_extensions_match():
     assert not extensions_match("file1.jpg", "file2.png")
 
 
-def test_urls_with_different_extensions():
-    result, message = outputs_match(
+async def test_urls_with_different_extensions():
+    result, message = await outputs_match(
         "http://example.com/file1.jpg", "http://example.com/file2.png", False
     )
     assert not result
     assert message == "URL extensions don't match"
 
 
-def test_one_url_one_non_url():
-    result, message = outputs_match("http://example.com/image.jpg", "not_a_url", False)
+async def test_one_url_one_non_url():
+    result, message = await outputs_match(
+        "http://example.com/image.jpg", "not_a_url", False
+    )
     assert not result
     assert message == "Only one output is a URL"
 
 
 @patch("cog_safe_push.match_outputs.download")
 @patch("PIL.Image.open")
-def test_images_with_different_sizes(mock_image_open, mock_download):
+async def test_images_with_different_sizes(mock_image_open, mock_download):
     assert mock_download
     mock_image1 = MagicMock()
     mock_image2 = MagicMock()
@@ -175,7 +177,7 @@ def test_images_with_different_sizes(mock_image_open, mock_download):
     mock_image2.size = (200, 200)
     mock_image_open.side_effect = [mock_image1, mock_image2]
 
-    result, message = outputs_match(
+    result, message = await outputs_match(
         "http://example.com/image1.jpg", "http://example.com/image2.jpg", False
     )
     assert not result
@@ -183,8 +185,8 @@ def test_images_with_different_sizes(mock_image_open, mock_download):
 
 
 @patch("cog_safe_push.log.warning")
-def test_unknown_url_format(mock_warning):
-    result, _ = outputs_match(
+async def test_unknown_url_format(mock_warning):
+    result, _ = await outputs_match(
         "http://example.com/unknown.xyz", "http://example.com/unknown.xyz", False
     )
     assert result
@@ -194,23 +196,23 @@ def test_unknown_url_format(mock_warning):
 
 
 @patch("cog_safe_push.log.warning")
-def test_unknown_output_type(mock_warning):
+async def test_unknown_output_type(mock_warning):
     class UnknownType:
         pass
 
-    result, _ = outputs_match(UnknownType(), UnknownType(), False)
+    result, _ = await outputs_match(UnknownType(), UnknownType(), False)
     assert result
     mock_warning.assert_called_with(f"Unknown type: {type(UnknownType())}")
 
 
-def test_large_structure_performance():
+async def test_large_structure_performance():
     import time
 
     large_struct1 = {"key" + str(i): i for i in range(10000)}
     large_struct2 = {"key" + str(i): i for i in range(10000)}
 
     start_time = time.time()
-    result, _ = outputs_match(large_struct1, large_struct2, False)
+    result, _ = await outputs_match(large_struct1, large_struct2, False)
     end_time = time.time()
 
     assert result

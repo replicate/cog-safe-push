@@ -37,7 +37,7 @@ class FuzzConfig(BaseModel):
     fixed_inputs: dict[str, InputScalar] = {}
     disabled_inputs: list[str] = []
     duration: int = DEFAULT_FUZZ_DURATION
-    iterations: int | None = None
+    iterations: int = 10
 
 
 class PredictConfig(BaseModel):
@@ -68,6 +68,7 @@ class Config(BaseModel):
     predict: PredictConfig | None = None
     train: TrainConfig | None = None
     dockerfile: str | None = None
+    parallel: int = 4
 
     def override(self, field: str, args: argparse.Namespace, arg: str):
         if hasattr(args, arg) and getattr(args, arg) is not None:
