@@ -236,7 +236,7 @@ Now, given the following OpenAPI schemas:
 
 Generate a json payload for the {input_name} schema.
 
-If inputs have format=uri, you should use one of the following media URLs:
+If inputs have format=uri, you should use one of the following media URLs (pick an appropriate URL for the the input, e.g. one of the image examples below if the input expects an image):
 Videos:
 * https://storage.googleapis.com/cog-safe-push-public/harry-truman.webm
 * https://storage.googleapis.com/cog-safe-push-public/mariner-launch.ogv

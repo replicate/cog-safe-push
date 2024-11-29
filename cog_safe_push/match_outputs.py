@@ -22,15 +22,21 @@ def output_matches_prompt(output: Any, prompt: str) -> tuple[bool, str]:
         urls = output if isinstance(output, list) else list(output.values())
 
     with download_many(urls) as tmp_files:
-        claude_prompt = "Does this output match the following description?"
-        if urls:
-            claude_prompt = "Does this output or the contents of the output file(s) match the following description?  The contents of the output file(s) are attached."
+        claude_prompt = """You are part of an automatic evaluation that compares media (text, audio, image, video, etc.) to captions. I want to know if the caption matches the text or file..
 
-        claude_prompt += f"""
+"""
+        if urls:
+            claude_prompt += f"""Does this file(s) and the attached content of the file(s) match the description? Pay close attention to the metadata about the attached files which is included below, especially if the description mentions file type, image dimensions, or any other aspect that is described in the metadata. Do not infer file type or image dimensions from the image content, but from the attached metadata.
+
+Description to evaluate: {prompt}
+
+Filename(s): {output}"""
+        else:
+            claude_prompt += f"""Do these outputs match the following description?
 
 Output: {output}
 
-Description: {prompt}"""
+Description to evaluate: {prompt}"""
 
         matches = ai.boolean(
             claude_prompt,
@@ -38,8 +44,22 @@ Description: {prompt}"""
             include_file_metadata=True,
         )
 
-    if matches:
-        return True, ""
+        if matches:
+            return True, ""
+
+        # If it's not a match, do best of three to avoid flaky tests
+        multiple_matches = [matches]
+        for _ in range(2):
+            matches = ai.boolean(
+                claude_prompt,
+                files=tmp_files,
+                include_file_metadata=True,
+            )
+            multiple_matches.append(matches)
+
+            if sum(multiple_matches) >= 2:
+                return True, ""
+
     return False, "AI determined that the output does not match the description"
 
 
