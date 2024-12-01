@@ -140,7 +140,6 @@ Videos:
 Images:
 * https://storage.googleapis.com/cog-safe-push-public/skull.jpg
 * https://storage.googleapis.com/cog-safe-push-public/fast-car.jpg
-* https://storage.googleapis.com/cog-safe-push-public/rolling-stones.jpg
 * https://storage.googleapis.com/cog-safe-push-public/forest.png
 * https://storage.googleapis.com/cog-safe-push-public/face.gif
 Music audio:
