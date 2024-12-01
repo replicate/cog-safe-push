@@ -4,6 +4,7 @@ import uuid
 from contextlib import contextmanager, suppress
 from pathlib import Path
 
+import httpx
 import pytest
 import replicate
 from replicate.exceptions import ReplicateException
@@ -244,16 +245,17 @@ def delete_model(model_owner, model_name):
         # model likely doesn't exist
         return
 
-    for version in model.versions.list():
-        print(f"Deleting version {version.id}")
+    with suppress(httpx.RemoteProtocolError):
+        for version in model.versions.list():
+            print(f"Deleting version {version.id}")
+            with suppress(json.JSONDecodeError):
+                # bug in replicate-python causes delete to throw JSONDecodeError
+                model.versions.delete(version.id)
+
+        print(f"Deleting model {model_owner}/{model_name}")
         with suppress(json.JSONDecodeError):
             # bug in replicate-python causes delete to throw JSONDecodeError
-            model.versions.delete(version.id)
-
-    print(f"Deleting model {model_owner}/{model_name}")
-    with suppress(json.JSONDecodeError):
-        # bug in replicate-python causes delete to throw JSONDecodeError
-        replicate.models.delete(model_owner, model_name)
+            replicate.models.delete(model_owner, model_name)
 
 
 @contextmanager
