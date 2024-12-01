@@ -1,124 +1,21 @@
+import asyncio
 import json
 import time
-from dataclasses import dataclass
-from typing import Any, List
+from typing import Any
 
 import replicate
 from replicate.exceptions import ReplicateError
 from replicate.model import Model
 
-from . import ai, log, schema
+from . import ai, log
 from .exceptions import (
     AIError,
-    FuzzError,
-    OutputsDontMatchError,
     PredictionFailedError,
     PredictionTimeoutError,
-    TestCaseFailedError,
 )
-from .match_outputs import is_url, output_matches_prompt, outputs_match, urls_match
 
 
-@dataclass
-class ExactStringOutput:
-    string: str
-
-
-@dataclass
-class ExactURLOutput:
-    url: str
-
-
-@dataclass
-class AIOutput:
-    prompt: str
-
-
-@dataclass
-class TestCase:
-    inputs: dict[str, Any]
-    output: ExactStringOutput | ExactURLOutput | AIOutput | None
-
-
-def check_outputs_match(
-    test_model: Model,
-    model: Model,
-    train: bool,
-    train_destination: Model | None,
-    timeout_seconds: float,
-    inputs: dict[str, Any],
-    is_deterministic: bool,
-):
-    test_output = predict(
-        model=test_model,
-        train=train,
-        train_destination=train_destination,
-        inputs=inputs,
-        timeout_seconds=timeout_seconds,
-    )
-    output = predict(
-        model=model,
-        train=train,
-        train_destination=train_destination,
-        inputs=inputs,
-        timeout_seconds=timeout_seconds,
-    )
-    matches, error = outputs_match(test_output, output, is_deterministic)
-    if not matches:
-        raise OutputsDontMatchError(
-            f"Outputs don't match:\n\ntest output:\n{test_output}\n\nmodel output:\n{output}\n\n{error}"
-        )
-
-
-def fuzz_model(
-    model: Model,
-    train: bool,
-    train_destination: Model | None,
-    timeout_seconds: float,
-    max_iterations: int | None,
-    fixed_inputs: dict[str, Any],
-    disabled_inputs: list[str],
-):
-    start_time = time.time()
-    inputs_history = []
-    successful_predictions = 0
-    while True:
-        schemas = schema.get_schemas(model, train=train)
-        predict_inputs, _ = make_predict_inputs(
-            schemas,
-            train=train,
-            only_required=False,
-            seed=None,
-            fixed_inputs=fixed_inputs,
-            disabled_inputs=disabled_inputs,
-            inputs_history=inputs_history,
-        )
-        inputs_history.append(predict_inputs)
-        predict_timeout = start_time + timeout_seconds - time.time()
-        try:
-            output = predict(
-                model=model,
-                train=train,
-                train_destination=train_destination,
-                inputs=predict_inputs,
-                timeout_seconds=predict_timeout,
-            )
-        except PredictionTimeoutError:
-            if not successful_predictions:
-                log.warning(
-                    f"No predictions succeeded in {timeout_seconds}, try increasing --fuzz-seconds"
-                )
-            return
-        except PredictionFailedError as e:
-            raise FuzzError(e)
-        if not output:
-            raise FuzzError("No output")
-        successful_predictions += 1
-        if max_iterations is not None and successful_predictions == max_iterations:
-            return
-
-
-def make_predict_inputs(
+async def make_predict_inputs(
     schemas: dict,
     train: bool,
     only_required: bool,
@@ -260,6 +157,8 @@ Short speech:
 * https://storage.googleapis.com/cog-safe-push-public/de-experiment-german-word.ogg
 * https://storage.googleapis.com/cog-safe-push-public/de-ionendosis-german-word.ogg
 
+If the schema has default values for some of the inputs, feel free to either use the defaults or come up with new values.
+
     """
     )
 
@@ -281,17 +180,17 @@ Short speech:
         inputs_history_str = "\n".join(["* " + json.dumps(i) for i in inputs_history])
         prompt += f"""
 
-Return a new combination of inputs that you haven't used before. You have previously used these inputs:
+Return a new combination of inputs that you haven't used before, ideally that's quite diverse from inputs you've used before. You have previously used these inputs:
 {inputs_history_str}"""
 
-    inputs = ai.json_object(prompt)
+    inputs = await ai.json_object(prompt)
     if set(required) - set(inputs.keys()):
         max_attempts = 5
         if attempt == max_attempts:
             raise AIError(
                 f"Failed to generate a json payload with the correct keys after {max_attempts} attempts, giving up"
             )
-        return make_predict_inputs(
+        return await make_predict_inputs(
             schemas=schemas,
             train=train,
             only_required=only_required,
@@ -316,7 +215,7 @@ Return a new combination of inputs that you haven't used before. You have previo
     return inputs, is_deterministic
 
 
-def predict(
+async def predict(
     model: Model,
     train: bool,
     train_destination: Model | None,
@@ -326,6 +225,8 @@ def predict(
     log.vv(
         f"Running {'training' if train else 'prediction'} with inputs:\n{json.dumps(inputs, indent=2)}"
     )
+
+    start_time = time.time()
 
     if train:
         assert train_destination
@@ -337,6 +238,10 @@ def predict(
         )
     else:
         try:
+            # await async_create doesn't seem to work here, throws
+            # RuntimeError: Event loop is closed
+            # But since we're async sleeping this should only block
+            # a very short time
             prediction = replicate.predictions.create(
                 version=model.versions.list()[0].id, input=inputs
             )
@@ -349,9 +254,8 @@ def predict(
 
     log.vv(f"Prediction URL: https://replicate.com/p/{prediction.id}")
 
-    start_time = time.time()
     while prediction.status not in ["succeeded", "failed", "canceled"]:
-        time.sleep(0.5)
+        await asyncio.sleep(0.5)
         if time.time() - start_time > timeout_seconds:
             raise PredictionTimeoutError()
         prediction.reload()
@@ -359,79 +263,10 @@ def predict(
     if prediction.status == "failed":
         raise PredictionFailedError(prediction.error)
 
-    log.vv(f"Got output: {truncate(prediction.output)}")
+    duration = time.time() - start_time
+    log.vv(f"Got output: {truncate(prediction.output)}  ({duration:.2f} sec)")
 
     return prediction.output
-
-
-def run_test_cases(
-    model: Model,
-    train: bool,
-    train_destination: Model | None,
-    predict_timeout: int,
-    test_cases: List[TestCase],
-):
-    for i, test_case in enumerate(test_cases):
-        log.info(f"Running test case {i + 1}/{len(test_cases)}")
-
-        try:
-            output = predict(
-                model=model,
-                train=train,
-                train_destination=train_destination,
-                inputs=test_case.inputs,
-                timeout_seconds=predict_timeout,
-            )
-        except PredictionFailedError as e:
-            raise TestCaseFailedError(f"Test case {i + 1} failed: {str(e)}")
-
-        if test_case.output is None:
-            log.info(f"Test case {i + 1} passed (no output checker)")
-            continue
-
-        if isinstance(test_case.output, ExactStringOutput):
-            if output != test_case.output.string:
-                raise TestCaseFailedError(
-                    f"Test case {i + 1} failed: Expected '{test_case.output.string}', got '{truncate(output, 200)}'"
-                )
-        elif isinstance(test_case.output, ExactURLOutput):
-            output_url = None
-            if isinstance(output, str) and is_url(output):
-                output_url = output
-            if (
-                isinstance(output, list)
-                and len(output) == 1
-                and isinstance(output[0], str)
-                and is_url(output[0])
-            ):
-                output_url = output[0]
-            if output_url is not None:
-                matches, error = urls_match(
-                    test_case.output.url, output_url, is_deterministic=True
-                )
-                if not matches:
-                    raise TestCaseFailedError(
-                        f"Test case {i + 1} failed: URL mismatch. {error}"
-                    )
-            else:
-                raise TestCaseFailedError(
-                    f"Test case {i + 1} failed: Expected URL, got '{truncate(output, 200)}'"
-                )
-        elif isinstance(test_case.output, AIOutput):
-            try:
-                matches, error = output_matches_prompt(output, test_case.output.prompt)
-                if not matches:
-                    raise TestCaseFailedError(f"Test case {i + 1} failed: {error}")
-            except AIError as e:
-                raise TestCaseFailedError(
-                    f"Test case {i + 1} failed: AI error: {str(e)}"
-                )
-        else:
-            raise ValueError(f"Unknown output type: {type(test_case.output)}")
-
-        log.info(f"Test case {i + 1} passed")
-
-    log.info(f"All {len(test_cases)} test cases passed")
 
 
 def truncate(s, max_length=500) -> str:

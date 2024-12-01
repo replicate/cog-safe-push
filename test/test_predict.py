@@ -31,10 +31,10 @@ def sample_schemas():
 
 
 @patch("cog_safe_push.predict.ai.json_object")
-def test_make_predict_inputs_basic(mock_json_object, sample_schemas):
+async def test_make_predict_inputs_basic(mock_json_object, sample_schemas):
     mock_json_object.return_value = {"text": "hello", "number": 42, "choice": "A"}
 
-    inputs, is_deterministic = make_predict_inputs(
+    inputs, is_deterministic = await make_predict_inputs(
         sample_schemas,
         train=False,
         only_required=True,
@@ -47,11 +47,11 @@ def test_make_predict_inputs_basic(mock_json_object, sample_schemas):
     assert not is_deterministic
 
 
-def test_make_predict_inputs_with_seed(sample_schemas):
+async def test_make_predict_inputs_with_seed(sample_schemas):
     with patch("cog_safe_push.predict.ai.json_object") as mock_json_object:
         mock_json_object.return_value = {"text": "hello", "number": 42, "choice": "A"}
 
-        inputs, is_deterministic = make_predict_inputs(
+        inputs, is_deterministic = await make_predict_inputs(
             sample_schemas,
             train=False,
             only_required=True,
@@ -64,11 +64,11 @@ def test_make_predict_inputs_with_seed(sample_schemas):
         assert is_deterministic
 
 
-def test_make_predict_inputs_with_fixed_inputs(sample_schemas):
+async def test_make_predict_inputs_with_fixed_inputs(sample_schemas):
     with patch("cog_safe_push.predict.ai.json_object") as mock_json_object:
         mock_json_object.return_value = {"text": "hello", "number": 42, "choice": "A"}
 
-        inputs, _ = make_predict_inputs(
+        inputs, _ = await make_predict_inputs(
             sample_schemas,
             train=False,
             only_required=True,
@@ -80,7 +80,7 @@ def test_make_predict_inputs_with_fixed_inputs(sample_schemas):
         assert inputs["text"] == "fixed"
 
 
-def test_make_predict_inputs_with_disabled_inputs(sample_schemas):
+async def test_make_predict_inputs_with_disabled_inputs(sample_schemas):
     with patch("cog_safe_push.predict.ai.json_object") as mock_json_object:
         mock_json_object.return_value = {
             "text": "hello",
@@ -89,7 +89,7 @@ def test_make_predict_inputs_with_disabled_inputs(sample_schemas):
             "optional": True,
         }
 
-        inputs, _ = make_predict_inputs(
+        inputs, _ = await make_predict_inputs(
             sample_schemas,
             train=False,
             only_required=False,
@@ -101,7 +101,7 @@ def test_make_predict_inputs_with_disabled_inputs(sample_schemas):
         assert "optional" not in inputs
 
 
-def test_make_predict_inputs_with_inputs_history(sample_schemas):
+async def test_make_predict_inputs_with_inputs_history(sample_schemas):
     with patch("cog_safe_push.predict.ai.json_object") as mock_json_object:
         mock_json_object.return_value = {"text": "new", "number": 100, "choice": "C"}
 
@@ -110,7 +110,7 @@ def test_make_predict_inputs_with_inputs_history(sample_schemas):
             {"text": "older", "number": 21, "choice": "B"},
         ]
 
-        inputs, _ = make_predict_inputs(
+        inputs, _ = await make_predict_inputs(
             sample_schemas,
             train=False,
             only_required=True,
@@ -124,14 +124,14 @@ def test_make_predict_inputs_with_inputs_history(sample_schemas):
         assert inputs != inputs_history[1]
 
 
-def test_make_predict_inputs_ai_error(sample_schemas):
+async def test_make_predict_inputs_ai_error(sample_schemas):
     with patch("cog_safe_push.predict.ai.json_object") as mock_json_object:
         mock_json_object.side_effect = [
             {"text": "hello"},  # Missing required fields
             {"text": "hello", "number": 42, "choice": "A"},  # Correct input
         ]
 
-        inputs, _ = make_predict_inputs(
+        inputs, _ = await make_predict_inputs(
             sample_schemas,
             train=False,
             only_required=True,
@@ -144,14 +144,14 @@ def test_make_predict_inputs_ai_error(sample_schemas):
         assert mock_json_object.call_count == 2
 
 
-def test_make_predict_inputs_max_attempts_reached(sample_schemas):
+async def test_make_predict_inputs_max_attempts_reached(sample_schemas):
     with patch("cog_safe_push.predict.ai.json_object") as mock_json_object:
         mock_json_object.return_value = {
             "text": "hello"
         }  # Always missing required fields
 
         with pytest.raises(AIError):
-            make_predict_inputs(
+            await make_predict_inputs(
                 sample_schemas,
                 train=False,
                 only_required=True,

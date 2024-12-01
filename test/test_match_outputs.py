@@ -12,18 +12,23 @@ from cog_safe_push.match_outputs import (
 )
 
 
-def test_identical_strings():
-    assert outputs_match("hello", "hello", True) == (True, "")
+async def test_identical_strings():
+    assert await outputs_match("hello", "hello", True) == (True, "")
 
 
-def test_different_strings_deterministic():
-    assert outputs_match("hello", "world", True) == (False, "Strings aren't the same")
+async def test_different_strings_deterministic():
+    assert await outputs_match("hello", "world", True) == (
+        False,
+        "Strings aren't the same",
+    )
 
 
 @patch("cog_safe_push.predict.ai.boolean")
-def test_different_strings_non_deterministic(mock_ai_boolean):
+async def test_different_strings_non_deterministic(mock_ai_boolean):
     mock_ai_boolean.return_value = True
-    assert outputs_match("The quick brown fox", "A fast auburn canine", False) == (
+    assert await outputs_match(
+        "The quick brown fox", "A fast auburn canine", False
+    ) == (
         True,
         "",
     )
@@ -31,92 +36,101 @@ def test_different_strings_non_deterministic(mock_ai_boolean):
 
     mock_ai_boolean.reset_mock()
     mock_ai_boolean.return_value = False
-    assert outputs_match(
+    assert await outputs_match(
         "The quick brown fox", "Something completely different", False
     ) == (False, "Strings aren't similar")
     mock_ai_boolean.assert_called_once()
 
 
-def test_identical_booleans():
-    assert outputs_match(True, True, True) == (True, "")
+async def test_identical_booleans():
+    assert await outputs_match(True, True, True) == (True, "")
 
 
-def test_different_booleans():
-    assert outputs_match(True, False, True) == (False, "Booleans aren't identical")
+async def test_different_booleans():
+    assert await outputs_match(True, False, True) == (
+        False,
+        "Booleans aren't identical",
+    )
 
 
-def test_identical_integers():
-    assert outputs_match(42, 42, True) == (True, "")
+async def test_identical_integers():
+    assert await outputs_match(42, 42, True) == (True, "")
 
 
-def test_different_integers():
-    assert outputs_match(42, 43, True) == (False, "Integers aren't identical")
+async def test_different_integers():
+    assert await outputs_match(42, 43, True) == (False, "Integers aren't identical")
 
 
-def test_close_floats():
-    assert outputs_match(3.14, 3.14001, True) == (True, "")
+async def test_close_floats():
+    assert await outputs_match(3.14, 3.14001, True) == (True, "")
 
 
-def test_different_floats():
-    assert outputs_match(3.14, 3.25, True) == (False, "Floats aren't identical")
+async def test_different_floats():
+    assert await outputs_match(3.14, 3.25, True) == (False, "Floats aren't identical")
 
 
-def test_identical_dicts():
+async def test_identical_dicts():
     dict1 = {"a": 1, "b": "hello"}
     dict2 = {"a": 1, "b": "hello"}
-    assert outputs_match(dict1, dict2, True) == (True, "")
+    assert await outputs_match(dict1, dict2, True) == (True, "")
 
 
-def test_different_dict_values():
+async def test_different_dict_values():
     dict1 = {"a": 1, "b": "hello"}
     dict2 = {"a": 1, "b": "world"}
-    assert outputs_match(dict1, dict2, True) == (False, "In b: Strings aren't the same")
+    assert await outputs_match(dict1, dict2, True) == (
+        False,
+        "In b: Strings aren't the same",
+    )
 
 
-def test_different_dict_keys():
+async def test_different_dict_keys():
     dict1 = {"a": 1, "b": "hello"}
     dict2 = {"a": 1, "c": "hello"}
-    assert outputs_match(dict1, dict2, True) == (False, "Dict keys don't match")
+    assert await outputs_match(dict1, dict2, True) == (False, "Dict keys don't match")
 
 
-def test_identical_lists():
+async def test_identical_lists():
     list1 = [1, "hello", True]
     list2 = [1, "hello", True]
-    assert outputs_match(list1, list2, True) == (True, "")
+    assert await outputs_match(list1, list2, True) == (True, "")
 
 
-def test_different_list_values():
+async def test_different_list_values():
     list1 = [1, "hello", True]
     list2 = [1, "world", True]
-    assert outputs_match(list1, list2, True) == (
+    assert await outputs_match(list1, list2, True) == (
         False,
         "At index 1: Strings aren't the same",
     )
 
 
-def test_different_list_lengths():
+async def test_different_list_lengths():
     list1 = [1, 2, 3]
     list2 = [1, 2]
-    assert outputs_match(list1, list2, True) == (False, "List lengths don't match")
+    assert await outputs_match(list1, list2, True) == (
+        False,
+        "List lengths don't match",
+    )
 
 
-def test_nested_structures():
+async def test_nested_structures():
     struct1 = {"a": [1, {"b": "hello"}], "c": True}
     struct2 = {"a": [1, {"b": "hello"}], "c": True}
-    assert outputs_match(struct1, struct2, True) == (True, "")
+    assert await outputs_match(struct1, struct2, True) == (True, "")
 
 
-def test_different_nested_structures():
+async def test_different_nested_structures():
     struct1 = {"a": [1, {"b": "hello"}], "c": True}
     struct2 = {"a": [1, {"b": "world"}], "c": True}
-    assert outputs_match(struct1, struct2, True) == (
+    assert await outputs_match(struct1, struct2, True) == (
         False,
         "In a: At index 1: In b: Strings aren't the same",
     )
 
 
-def test_different_types():
-    assert outputs_match("42", 42, True) == (
+async def test_different_types():
+    assert await outputs_match("42", 42, True) == (
         False,
         "The types of the outputs don't match",
     )
@@ -151,23 +165,25 @@ def test_extensions_match():
     assert not extensions_match("file1.jpg", "file2.png")
 
 
-def test_urls_with_different_extensions():
-    result, message = outputs_match(
+async def test_urls_with_different_extensions():
+    result, message = await outputs_match(
         "http://example.com/file1.jpg", "http://example.com/file2.png", False
     )
     assert not result
     assert message == "URL extensions don't match"
 
 
-def test_one_url_one_non_url():
-    result, message = outputs_match("http://example.com/image.jpg", "not_a_url", False)
+async def test_one_url_one_non_url():
+    result, message = await outputs_match(
+        "http://example.com/image.jpg", "not_a_url", False
+    )
     assert not result
     assert message == "Only one output is a URL"
 
 
 @patch("cog_safe_push.match_outputs.download")
 @patch("PIL.Image.open")
-def test_images_with_different_sizes(mock_image_open, mock_download):
+async def test_images_with_different_sizes(mock_image_open, mock_download):
     assert mock_download
     mock_image1 = MagicMock()
     mock_image2 = MagicMock()
@@ -175,7 +191,7 @@ def test_images_with_different_sizes(mock_image_open, mock_download):
     mock_image2.size = (200, 200)
     mock_image_open.side_effect = [mock_image1, mock_image2]
 
-    result, message = outputs_match(
+    result, message = await outputs_match(
         "http://example.com/image1.jpg", "http://example.com/image2.jpg", False
     )
     assert not result
@@ -183,8 +199,8 @@ def test_images_with_different_sizes(mock_image_open, mock_download):
 
 
 @patch("cog_safe_push.log.warning")
-def test_unknown_url_format(mock_warning):
-    result, _ = outputs_match(
+async def test_unknown_url_format(mock_warning):
+    result, _ = await outputs_match(
         "http://example.com/unknown.xyz", "http://example.com/unknown.xyz", False
     )
     assert result
@@ -194,23 +210,23 @@ def test_unknown_url_format(mock_warning):
 
 
 @patch("cog_safe_push.log.warning")
-def test_unknown_output_type(mock_warning):
+async def test_unknown_output_type(mock_warning):
     class UnknownType:
         pass
 
-    result, _ = outputs_match(UnknownType(), UnknownType(), False)
+    result, _ = await outputs_match(UnknownType(), UnknownType(), False)
     assert result
     mock_warning.assert_called_with(f"Unknown type: {type(UnknownType())}")
 
 
-def test_large_structure_performance():
+async def test_large_structure_performance():
     import time
 
     large_struct1 = {"key" + str(i): i for i in range(10000)}
     large_struct2 = {"key" + str(i): i for i in range(10000)}
 
     start_time = time.time()
-    result, _ = outputs_match(large_struct1, large_struct2, False)
+    result, _ = await outputs_match(large_struct1, large_struct2, False)
     end_time = time.time()
 
     assert result

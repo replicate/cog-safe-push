@@ -1,18 +1,17 @@
 import argparse
+import asyncio
 import re
 import sys
+from asyncio import Queue
 from pathlib import Path
 from typing import Any
 
 import pydantic
-import replicate
 import yaml
 from replicate.exceptions import ReplicateError
-from replicate.model import Model
 
-from . import cog, lint, log, predict, schema
+from . import cog, lint, log, schema
 from .config import (
-    DEFAULT_FUZZ_DURATION,
     DEFAULT_PREDICT_TIMEOUT,
     Config,
     FuzzConfig,
@@ -21,12 +20,17 @@ from .config import (
 )
 from .config import TestCase as ConfigTestCase
 from .exceptions import ArgumentError, CogSafePushError
-from .predict import (
+from .task_context import TaskContext, make_task_context
+from .tasks import (
     AIOutput,
+    CheckOutputsMatch,
     ExactStringOutput,
     ExactURLOutput,
-    TestCase,
-    make_predict_inputs,
+    ExpectedOutput,
+    FuzzModel,
+    MakeFuzzInputs,
+    RunTestCase,
+    Task,
 )
 
 DEFAULT_CONFIG_PATH = Path("cog-safe-push.yaml")
@@ -104,14 +108,8 @@ def parse_args_and_config() -> tuple[Config, bool]:
         default=argparse.SUPPRESS,
     )
     parser.add_argument(
-        "--fuzz-duration",
-        help=f"Number of seconds to run fuzzing. Set to 0 for no fuzzing. Default: {DEFAULT_FUZZ_DURATION}",
-        type=int,
-        default=argparse.SUPPRESS,
-    )
-    parser.add_argument(
         "--fuzz-iterations",
-        help="Maximum number of iterations to run fuzzing. Leave blank to run for the full --fuzz-seconds",
+        help="Maximum number of iterations to run fuzzing.",
         type=int,
         default=argparse.SUPPRESS,
     )
@@ -163,7 +161,6 @@ def parse_args_and_config() -> tuple[Config, bool]:
     config.predict_override("predict_timeout", args, "predict_timeout")
     config.predict_fuzz_override("fixed_inputs", args, "fuzz_fixed_inputs")
     config.predict_fuzz_override("disabled_inputs", args, "fuzz_disabled_inputs")
-    config.predict_fuzz_override("duration", args, "fuzz_duration")
     config.predict_fuzz_override("iterations", args, "fuzz_iterations")
 
     if not config.test_model:
@@ -179,7 +176,7 @@ def run_config(config: Config, no_push: bool):
     test_model_owner, test_model_name = parse_model(config.test_model)
 
     # small optimization
-    reuse_test_model = None
+    task_context = None
 
     if config.train:
         # Don't push twice in case train and predict are both defined
@@ -192,82 +189,76 @@ def run_config(config: Config, no_push: bool):
         if config.train.fuzz:
             fuzz = config.train.fuzz
         else:
-            fuzz = FuzzConfig(
-                fixed_inputs={}, disabled_inputs=[], duration=0, iterations=0
-            )
-        reuse_test_model = cog_safe_push(
+            fuzz = FuzzConfig(fixed_inputs={}, disabled_inputs=[], iterations=0)
+        task_context = make_task_context(
             model_owner=model_owner,
             model_name=model_name,
             test_model_owner=test_model_owner,
             test_model_name=test_model_name,
-            no_push=train_no_push,
             test_hardware=config.test_hardware,
             train=True,
             train_destination_owner=destination_owner,
             train_destination_name=destination_name,
+            dockerfile=config.dockerfile,
+        )
+
+        cog_safe_push(
+            task_context=task_context,
+            no_push=train_no_push,
+            train=True,
             do_compare_outputs=False,
             predict_timeout=config.train.train_timeout,
-            test_cases=config_test_cases_to_test_cases(config.train.test_cases),
+            test_cases=parse_config_test_cases(config.train.test_cases),
             fuzz_fixed_inputs=fuzz.fixed_inputs,
             fuzz_disabled_inputs=fuzz.disabled_inputs,
-            fuzz_seconds=fuzz.duration,
             fuzz_iterations=fuzz.iterations,
+            parallel=config.parallel,
         )
 
     if config.predict:
         if config.predict.fuzz:
             fuzz = config.predict.fuzz
         else:
-            fuzz = FuzzConfig(
-                fixed_inputs={}, disabled_inputs=[], duration=0, iterations=0
+            fuzz = FuzzConfig(fixed_inputs={}, disabled_inputs=[], iterations=0)
+        if task_context is None:  # has not been created in the training block above
+            task_context = make_task_context(
+                model_owner=model_owner,
+                model_name=model_name,
+                test_model_owner=test_model_owner,
+                test_model_name=test_model_name,
+                test_hardware=config.test_hardware,
+                dockerfile=config.dockerfile,
             )
+
         cog_safe_push(
-            model_owner=model_owner,
-            model_name=model_name,
-            test_model_owner=test_model_owner,
-            test_model_name=test_model_name,
+            task_context=task_context,
             no_push=no_push,
-            test_hardware=config.test_hardware,
             train=False,
             do_compare_outputs=config.predict.compare_outputs,
             predict_timeout=config.predict.predict_timeout,
-            test_cases=config_test_cases_to_test_cases(config.predict.test_cases),
+            test_cases=parse_config_test_cases(config.predict.test_cases),
             fuzz_fixed_inputs=fuzz.fixed_inputs,
             fuzz_disabled_inputs=fuzz.disabled_inputs,
-            fuzz_seconds=fuzz.duration,
             fuzz_iterations=fuzz.iterations,
-            reuse_test_model=reuse_test_model,
-            dockerfile=config.dockerfile,
+            parallel=config.parallel,
         )
 
 
 def cog_safe_push(
-    model_owner: str,
-    model_name: str,
-    test_model_owner: str,
-    test_model_name: str,
-    test_hardware: str,
+    task_context: TaskContext,
     no_push: bool = False,
     train: bool = False,
-    train_destination_owner: str | None = None,
-    train_destination_name: str | None = None,
-    train_destination_hardware: str = "cpu",
     do_compare_outputs: bool = True,
     predict_timeout: int = 300,
-    test_cases: list[TestCase] = [],
+    test_cases: list[tuple[dict[str, Any], ExpectedOutput]] = [],
     fuzz_fixed_inputs: dict = {},
     fuzz_disabled_inputs: list = [],
-    fuzz_seconds: int = 30,
-    fuzz_iterations: int | None = None,
-    reuse_test_model: Model | None = None,
-    dockerfile: str | None = None,
+    fuzz_iterations: int = 10,
+    parallel=4,
 ):
-    if model_owner == test_model_owner and model_name == test_model_name:
-        raise ArgumentError("Can't use the same model as test model")
-
     if no_push:
         log.info(
-            f"Running in test-only mode, no model will be pushed to {model_owner}/{model_name}"
+            f"Running in test-only mode, no model will be pushed to {task_context.model.owner}/{task_context.model.name}"
         )
 
     if train:
@@ -280,118 +271,106 @@ def cog_safe_push(
             "--fuzz-fixed-inputs keys must not be present in --fuzz-disabled-inputs"
         )
 
-    model = get_model(model_owner, model_name)
-    if not model:
-        raise ArgumentError(
-            f"You need to create the model {model_owner}/{model_name} before running this script"
-        )
-
-    if reuse_test_model:
-        test_model = reuse_test_model
-    else:
-        test_model = get_or_create_model(
-            test_model_owner, test_model_name, test_hardware
-        )
-
-    if train:
-        train_destination = get_or_create_model(
-            train_destination_owner, train_destination_name, train_destination_hardware
-        )
-    else:
-        train_destination = None
-
-    if not reuse_test_model:
-        log.info("Pushing test model")
-        pushed_version_id = cog.push(test_model, dockerfile)
-        test_model.reload()
-        try:
-            assert (
-                test_model.versions.list()[0].id == pushed_version_id
-            ), f"Pushed version ID {pushed_version_id} doesn't match latest version on {test_model_owner}/{test_model_name}: {test_model.versions.list()[0].id}"
-        except ReplicateError as e:
-            if e.status == 404:
-                # Assume it's an official model
-                # If it's an official model, can't check that the version matches
-                pass
-            else:
-                raise
-
     log.info("Linting test model schema")
-    schema.lint(test_model, train=train)
+    schema.lint(task_context.test_model, train=train)
 
     model_has_versions = False
     try:
-        model_has_versions = bool(model.versions.list())
+        model_has_versions = bool(task_context.model.versions.list())
     except ReplicateError as e:
         if e.status == 404:
             # Assume it's an official model
-            model_has_versions = bool(model.latest_version)
+            model_has_versions = bool(task_context.model.latest_version)
         else:
             raise
 
+    tasks = []
+
     if model_has_versions:
         log.info("Checking schema backwards compatibility")
-        test_model_schemas = schema.get_schemas(test_model, train=train)
-        model_schemas = schema.get_schemas(model, train=train)
+        test_model_schemas = schema.get_schemas(task_context.test_model, train=train)
+        model_schemas = schema.get_schemas(task_context.model, train=train)
         schema.check_backwards_compatible(
             test_model_schemas, model_schemas, train=train
         )
         if do_compare_outputs:
-            log.info(
-                "Checking that outputs match between existing version and test version"
-            )
-            if test_cases:
-                compare_inputs = test_cases[0].inputs
-                is_deterministic = "seed" in compare_inputs
-            else:
-                schemas = schema.get_schemas(model, train=train)
-                compare_inputs, is_deterministic = make_predict_inputs(
-                    schemas,
-                    train=train,
-                    only_required=True,
-                    seed=1,
-                    fixed_inputs=fuzz_fixed_inputs,
-                    disabled_inputs=fuzz_disabled_inputs,
+            tasks.append(
+                CheckOutputsMatch(
+                    context=task_context,
+                    timeout_seconds=predict_timeout,
+                    first_test_case_inputs=test_cases[0][0] if test_cases else None,
+                    fuzz_fixed_inputs=fuzz_fixed_inputs,
+                    fuzz_disabled_inputs=fuzz_disabled_inputs,
                 )
-            predict.check_outputs_match(
-                test_model=test_model,
-                model=model,
-                train=train,
-                train_destination=train_destination,
-                timeout_seconds=predict_timeout,
-                inputs=compare_inputs,
-                is_deterministic=is_deterministic,
             )
 
     if test_cases:
-        log.info("Running test cases")
-        predict.run_test_cases(
-            model=test_model,
-            train=train,
-            train_destination=train_destination,
-            predict_timeout=predict_timeout,
-            test_cases=test_cases,
-        )
+        for inputs, output in test_cases:
+            tasks.append(
+                RunTestCase(
+                    context=task_context,
+                    inputs=inputs,
+                    output=output,
+                    predict_timeout=predict_timeout,
+                )
+            )
 
-    if fuzz_seconds > 0:
-        log.info("Fuzzing test model")
-        predict.fuzz_model(
-            model=test_model,
-            train=train,
-            train_destination=train_destination,
-            timeout_seconds=fuzz_seconds,
-            max_iterations=fuzz_iterations,
-            fixed_inputs=fuzz_fixed_inputs,
-            disabled_inputs=fuzz_disabled_inputs,
+    if fuzz_iterations > 0:
+        fuzz_inputs_queue = Queue(maxsize=fuzz_iterations)
+        tasks.append(
+            MakeFuzzInputs(
+                context=task_context,
+                inputs_queue=fuzz_inputs_queue,
+                num_inputs=fuzz_iterations,
+                fixed_inputs=fuzz_fixed_inputs,
+                disabled_inputs=fuzz_disabled_inputs,
+            )
         )
+        for _ in range(fuzz_iterations):
+            tasks.append(
+                FuzzModel(
+                    context=task_context,
+                    inputs_queue=fuzz_inputs_queue,
+                    predict_timeout=predict_timeout,
+                )
+            )
+
+    asyncio.run(run_tasks(tasks, parallel=parallel))
 
     log.info("Tests were successful ✨")
 
     if not no_push:
         log.info("Pushing model...")
-        cog.push(model, dockerfile)
+        cog.push(task_context.model, task_context.dockerfile)
 
-    return test_model  # for reuse
+
+async def run_tasks(tasks: list[Task], parallel: int) -> None:
+    log.info(f"Running tasks with parallelism {parallel}")
+
+    semaphore = asyncio.Semaphore(parallel)
+    errors: list[Exception] = []
+
+    async def run_with_semaphore(task: Task) -> None:
+        async with semaphore:
+            try:
+                print(f"starting task {type(task)}")
+                await task.run()
+                print(f"finished task {type(task)}")
+            except Exception as e:
+                errors.append(e)
+
+    # Create task coroutines and run them concurrently
+    task_coroutines = [run_with_semaphore(task) for task in tasks]
+
+    # Use gather to run tasks concurrently
+    await asyncio.gather(*task_coroutines, return_exceptions=True)
+
+    if errors:
+        # If there are multiple errors, we'll raise the first one
+        # but log all of them
+        for error in errors[1:]:
+            log.error(f"Additional error occurred: {error}")
+        raise errors[0]
 
 
 def parse_inputs(inputs_list: list[str]) -> dict[str, Any]:
@@ -423,35 +402,6 @@ def parse_input_value(value: str) -> Any:
 
     # string
     return value
-
-
-def get_or_create_model(model_owner, model_name, hardware) -> Model:
-    model = get_model(model_owner, model_name)
-
-    if not model:
-        if not hardware:
-            raise ArgumentError(
-                f"Model {model_owner}/{model_name} doesn't exist, and you didn't specify hardware"
-            )
-
-        log.info(f"Creating model {model_owner}/{model_name} with hardware {hardware}")
-        model = replicate.models.create(
-            owner=model_owner,
-            name=model_name,
-            visibility="private",
-            hardware=hardware,
-        )
-    return model
-
-
-def get_model(owner, name) -> Model | None:
-    try:
-        model = replicate.models.get(f"{owner}/{name}")
-    except ReplicateError as e:
-        if e.status == 404:
-            return None
-        raise
-    return model
 
 
 def parse_model(model_owner_name: str) -> tuple[str, str]:
@@ -502,23 +452,24 @@ def parse_test_case(test_case_str: str) -> ConfigTestCase:
     return test_case
 
 
-def config_test_cases_to_test_cases(
+def parse_config_test_case(
+    config_test_case: ConfigTestCase,
+) -> tuple[dict[str, Any], ExpectedOutput]:
+    output = None
+    if config_test_case.exact_string:
+        output = ExactStringOutput(string=config_test_case.exact_string)
+    elif config_test_case.match_url:
+        output = ExactURLOutput(url=config_test_case.match_url)
+    elif config_test_case.match_prompt:
+        output = AIOutput(prompt=config_test_case.match_prompt)
+
+    return (config_test_case.inputs, output)
+
+
+def parse_config_test_cases(
     config_test_cases: list[ConfigTestCase],
-) -> list[TestCase]:
-    test_cases = []
-    for tc in config_test_cases:
-        output = None
-        if tc.exact_string:
-            output = ExactStringOutput(string=tc.exact_string)
-        elif tc.match_url:
-            output = ExactURLOutput(url=tc.match_url)
-        elif tc.match_prompt:
-            output = AIOutput(prompt=tc.match_prompt)
-
-        test_case = TestCase(inputs=tc.inputs, output=output)
-        test_cases.append(test_case)
-
-    return test_cases
+) -> list[tuple[dict[str, Any], ExpectedOutput]]:
+    return [parse_config_test_case(tc) for tc in config_test_cases]
 
 
 def print_help_config():

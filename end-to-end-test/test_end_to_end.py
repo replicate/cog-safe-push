@@ -1,9 +1,10 @@
-import datetime
 import json
 import os
+import uuid
 from contextlib import contextmanager, suppress
 from pathlib import Path
 
+import httpx
 import pytest
 import replicate
 from replicate.exceptions import ReplicateException
@@ -11,69 +12,73 @@ from replicate.exceptions import ReplicateException
 from cog_safe_push import log
 from cog_safe_push.exceptions import *
 from cog_safe_push.main import cog_safe_push
-from cog_safe_push.predict import AIOutput, ExactStringOutput, ExactURLOutput, TestCase
+from cog_safe_push.task_context import make_task_context
+from cog_safe_push.tasks import AIOutput, ExactStringOutput, ExactURLOutput
 
-log.set_verbosity(3)
+log.set_verbosity(2)
 
 
 def test_cog_safe_push():
     model_owner = "replicate-internal"
-    model_name = "test-cog-safe-push-" + datetime.datetime.now().strftime(
-        "%y%m%d-%H%M%S"
-    )
+    model_name = generate_model_name()
     test_model_name = model_name + "-test"
     create_model(model_owner, model_name)
 
     try:
         with fixture_dir("base"):
             cog_safe_push(
-                model_owner,
-                model_name,
-                model_owner,
-                test_model_name,
-                "cpu",
+                make_task_context(
+                    model_owner, model_name, model_owner, test_model_name, "cpu"
+                ),
                 test_cases=[
-                    TestCase(
-                        inputs={"text": "world"},
-                        output=ExactStringOutput("hello world"),
+                    (
+                        {"text": "world"},
+                        ExactStringOutput("hello world"),
                     ),
-                    TestCase(
-                        inputs={"text": "world"},
-                        output=AIOutput("the text hello world"),
+                    (
+                        {"text": "world"},
+                        AIOutput("the text hello world"),
                     ),
                 ],
             )
 
         with fixture_dir("same-schema"):
-            cog_safe_push(model_owner, model_name, model_owner, test_model_name, "cpu")
+            cog_safe_push(
+                make_task_context(
+                    model_owner, model_name, model_owner, test_model_name, "cpu"
+                )
+            )
 
         with fixture_dir("schema-lint-error"):
             with pytest.raises(SchemaLintError):
                 cog_safe_push(
-                    model_owner, model_name, model_owner, test_model_name, "cpu"
+                    make_task_context(
+                        model_owner, model_name, model_owner, test_model_name, "cpu"
+                    )
                 )
 
         with fixture_dir("incompatible-schema"):
             with pytest.raises(IncompatibleSchemaError):
                 cog_safe_push(
-                    model_owner, model_name, model_owner, test_model_name, "cpu"
+                    make_task_context(
+                        model_owner, model_name, model_owner, test_model_name, "cpu"
+                    )
                 )
 
         with fixture_dir("outputs-dont-match"):
             with pytest.raises(OutputsDontMatchError):
                 cog_safe_push(
-                    model_owner, model_name, model_owner, test_model_name, "cpu"
+                    make_task_context(
+                        model_owner, model_name, model_owner, test_model_name, "cpu"
+                    )
                 )
 
         with fixture_dir("additive-schema-fuzz-error"):
             with pytest.raises(FuzzError):
                 cog_safe_push(
-                    model_owner,
-                    model_name,
-                    model_owner,
-                    test_model_name,
-                    "cpu",
-                    fuzz_seconds=120,
+                    make_task_context(
+                        model_owner, model_name, model_owner, test_model_name, "cpu"
+                    ),
                 )
 
     finally:
@@ -83,69 +88,68 @@ def test_cog_safe_push():
 
 def test_cog_safe_push_images():
     model_owner = "replicate-internal"
-    model_name = "test-cog-safe-push-" + datetime.datetime.now().strftime(
-        "%y%m%d-%H%M%S"
-    )
+    model_name = generate_model_name()
     test_model_name = model_name + "-test"
     create_model(model_owner, model_name)
 
     try:
         with fixture_dir("image-base"):
             cog_safe_push(
-                model_owner,
-                model_name,
-                model_owner,
-                test_model_name,
-                "cpu",
-                fuzz_seconds=60,
+                make_task_context(
+                    model_owner, model_name, model_owner, test_model_name, "cpu"
+                ),
                 test_cases=[
-                    TestCase(
-                        inputs={
+                    (
+                        {
                             "image": "https://storage.googleapis.com/cog-safe-push-public/fast-car.jpg",
                             "width": 1024,
                             "height": 639,
                         },
-                        output=ExactURLOutput(
+                        ExactURLOutput(
                             "https://storage.googleapis.com/cog-safe-push-public/fast-car.jpg"
                         ),
                     ),
-                    TestCase(
-                        inputs={
+                    (
+                        {
                             "image": "https://storage.googleapis.com/cog-safe-push-public/fast-car.jpg",
                             "width": 200,
                             "height": 100,
                         },
-                        output=AIOutput("An image of a car"),
+                        AIOutput("An image of a car"),
                     ),
-                    TestCase(
-                        inputs={
+                    (
+                        {
                             "image": "https://storage.googleapis.com/cog-safe-push-public/fast-car.jpg",
                             "width": 200,
                             "height": 100,
                         },
-                        output=AIOutput("A jpg image"),
+                        AIOutput("A jpg image"),
                     ),
-                    TestCase(
-                        inputs={
+                    (
+                        {
                             "image": "https://storage.googleapis.com/cog-safe-push-public/fast-car.jpg",
                             "width": 200,
                             "height": 100,
                         },
-                        output=AIOutput("A image with width 200px and height 100px"),
+                        AIOutput("A image with width 200px and height 100px"),
                     ),
-                    TestCase(
-                        inputs={
+                    (
+                        {
                             "image": "https://storage.googleapis.com/cog-safe-push-public/fast-car.jpg",
                             "width": 200,
                             "height": 100,
                         },
-                        output=None,
+                        None,
                     ),
                 ],
             )
 
         with fixture_dir("image-base"):
-            cog_safe_push(model_owner, model_name, model_owner, test_model_name, "cpu")
+            cog_safe_push(
+                make_task_context(
+                    model_owner, model_name, model_owner, test_model_name, "cpu"
+                )
+            )
 
     finally:
         delete_model(model_owner, model_name)
@@ -154,18 +158,24 @@ def test_cog_safe_push_images():
 
 def test_cog_safe_push_images_with_seed():
     model_owner = "replicate-internal"
-    model_name = "test-cog-safe-push-" + datetime.datetime.now().strftime(
-        "%y%m%d-%H%M%S"
-    )
+    model_name = generate_model_name()
     test_model_name = model_name + "-test"
     create_model(model_owner, model_name)
 
     try:
         with fixture_dir("image-base-seed"):
-            cog_safe_push(model_owner, model_name, model_owner, test_model_name, "cpu")
+            cog_safe_push(
+                make_task_context(
+                    model_owner, model_name, model_owner, test_model_name, "cpu"
+                )
+            )
 
         with fixture_dir("image-base-seed"):
-            cog_safe_push(model_owner, model_name, model_owner, test_model_name, "cpu")
+            cog_safe_push(
+                make_task_context(
+                    model_owner, model_name, model_owner, test_model_name, "cpu"
+                )
+            )
 
     finally:
         delete_model(model_owner, model_name)
@@ -174,36 +184,38 @@ def test_cog_safe_push_images_with_seed():
 
 def test_cog_safe_push_train():
     model_owner = "replicate-internal"
-    model_name = "test-cog-safe-push-" + datetime.datetime.now().strftime(
-        "%y%m%d-%H%M%S"
-    )
+    model_name = generate_model_name()
     test_model_name = model_name + "-test"
     create_model(model_owner, model_name)
 
     try:
         with fixture_dir("train"):
             cog_safe_push(
-                model_owner,
-                model_name,
-                model_owner,
-                test_model_name,
-                "cpu",
-                train=True,
-                train_destination_owner=model_owner,
-                train_destination_name=test_model_name + "-dest",
+                make_task_context(
+                    model_owner,
+                    model_name,
+                    model_owner,
+                    test_model_name,
+                    "cpu",
+                    train=True,
+                    train_destination_owner=model_owner,
+                    train_destination_name=test_model_name + "-dest",
+                ),
                 fuzz_iterations=1,
             )
 
         with fixture_dir("train"):
             cog_safe_push(
-                model_owner,
-                model_name,
-                model_owner,
-                test_model_name,
-                "cpu",
-                train=True,
-                train_destination_owner=model_owner,
-                train_destination_name=test_model_name + "-dest",
+                make_task_context(
+                    model_owner,
+                    model_name,
+                    model_owner,
+                    test_model_name,
+                    "cpu",
+                    train=True,
+                    train_destination_owner=model_owner,
+                    train_destination_name=test_model_name + "-dest",
+                ),
                 fuzz_iterations=1,
             )
 
@@ -211,6 +223,10 @@ def test_cog_safe_push_train():
         delete_model(model_owner, model_name)
         delete_model(model_owner, test_model_name)
         delete_model(model_owner, test_model_name + "-dest")
+
+
+def generate_model_name():
+    return "test-cog-safe-push-" + uuid.uuid4().hex
 
 
 def create_model(model_owner, model_name):
@@ -229,16 +245,17 @@ def delete_model(model_owner, model_name):
         # model likely doesn't exist
         return
 
-    for version in model.versions.list():
-        print(f"Deleting version {version.id}")
+    with suppress(httpx.RemoteProtocolError):
+        for version in model.versions.list():
+            print(f"Deleting version {version.id}")
+            with suppress(json.JSONDecodeError):
+                # bug in replicate-python causes delete to throw JSONDecodeError
+                model.versions.delete(version.id)
+
+        print(f"Deleting model {model_owner}/{model_name}")
         with suppress(json.JSONDecodeError):
             # bug in replicate-python causes delete to throw JSONDecodeError
-            model.versions.delete(version.id)
-
-    print(f"Deleting model {model_owner}/{model_name}")
-    with suppress(json.JSONDecodeError):
-        # bug in replicate-python causes delete to throw JSONDecodeError
-        replicate.models.delete(model_owner, model_name)
+            replicate.models.delete(model_owner, model_name)
 
 
 @contextmanager

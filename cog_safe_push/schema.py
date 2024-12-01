@@ -116,7 +116,7 @@ def get_openapi_schema(model: Model) -> dict:
         raise
 
 
-def get_schemas(model, train: bool):
+def get_schemas(model, train: bool) -> dict:
     schemas = get_openapi_schema(model)["components"]["schemas"]
     unnecessary_keys = [
         "HTTPValidationError",
