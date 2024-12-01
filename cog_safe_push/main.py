@@ -190,7 +190,7 @@ def run_config(config: Config, no_push: bool):
             fuzz = config.train.fuzz
         else:
             fuzz = FuzzConfig(
-                fixed_inputs={}, disabled_inputs=[], duration=0, iterations=0
+                fixed_inputs={}, disabled_inputs=[], iterations=0
             )
         task_context = make_task_context(
             model_owner=model_owner,
@@ -222,7 +222,7 @@ def run_config(config: Config, no_push: bool):
             fuzz = config.predict.fuzz
         else:
             fuzz = FuzzConfig(
-                fixed_inputs={}, disabled_inputs=[], duration=0, iterations=0
+                fixed_inputs={}, disabled_inputs=[], iterations=0
             )
         if task_context is None:  # has not been created in the training block above
             task_context = make_task_context(

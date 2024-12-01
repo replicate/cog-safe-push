@@ -17,13 +17,18 @@ async def test_identical_strings():
 
 
 async def test_different_strings_deterministic():
-    assert await outputs_match("hello", "world", True) == (False, "Strings aren't the same")
+    assert await outputs_match("hello", "world", True) == (
+        False,
+        "Strings aren't the same",
+    )
 
 
 @patch("cog_safe_push.predict.ai.boolean")
 async def test_different_strings_non_deterministic(mock_ai_boolean):
     mock_ai_boolean.return_value = True
-    assert await outputs_match("The quick brown fox", "A fast auburn canine", False) == (
+    assert await outputs_match(
+        "The quick brown fox", "A fast auburn canine", False
+    ) == (
         True,
         "",
     )
@@ -42,7 +47,10 @@ async def test_identical_booleans():
 
 
 async def test_different_booleans():
-    assert await outputs_match(True, False, True) == (False, "Booleans aren't identical")
+    assert await outputs_match(True, False, True) == (
+        False,
+        "Booleans aren't identical",
+    )
 
 
 async def test_identical_integers():
@@ -70,7 +78,10 @@ async def test_identical_dicts():
 async def test_different_dict_values():
     dict1 = {"a": 1, "b": "hello"}
     dict2 = {"a": 1, "b": "world"}
-    assert await outputs_match(dict1, dict2, True) == (False, "In b: Strings aren't the same")
+    assert await outputs_match(dict1, dict2, True) == (
+        False,
+        "In b: Strings aren't the same",
+    )
 
 
 async def test_different_dict_keys():
@@ -97,7 +108,10 @@ async def test_different_list_values():
 async def test_different_list_lengths():
     list1 = [1, 2, 3]
     list2 = [1, 2]
-    assert await outputs_match(list1, list2, True) == (False, "List lengths don't match")
+    assert await outputs_match(list1, list2, True) == (
+        False,
+        "List lengths don't match",
+    )
 
 
 async def test_nested_structures():

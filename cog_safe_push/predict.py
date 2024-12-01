@@ -248,9 +248,7 @@ async def predict(
         except ReplicateError as e:
             if e.status == 404:
                 # Assume it's an official model
-                prediction = replicate.predictions.create(
-                    model=model, input=inputs
-                )
+                prediction = replicate.predictions.create(model=model, input=inputs)
             else:
                 raise
 
