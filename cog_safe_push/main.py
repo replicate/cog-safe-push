@@ -114,6 +114,12 @@ def parse_args_and_config() -> tuple[Config, bool]:
         default=argparse.SUPPRESS,
     )
     parser.add_argument(
+        "--parallel",
+        help="Number of parallel prediction threads.",
+        type=int,
+        default=argparse.SUPPRESS,
+    )
+    parser.add_argument(
         "-v",
         "--verbose",
         action="count",
@@ -156,6 +162,7 @@ def parse_args_and_config() -> tuple[Config, bool]:
     config.override("model", args, "model")
     config.override("test_model", args, "test_model")
     config.override("test_hardware", args, "test_hardware")
+    config.override("parallel", args, "parallel")
     config.predict_override("test_cases", args, "test_cases")
     config.predict_override("compare_outputs", args, "compare_outputs")
     config.predict_override("predict_timeout", args, "predict_timeout")
