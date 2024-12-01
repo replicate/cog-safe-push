@@ -360,9 +360,7 @@ async def run_tasks(tasks: list[Task], parallel: int) -> None:
     async def run_with_semaphore(task: Task) -> None:
         async with semaphore:
             try:
-                print(f"starting task {type(task)}")
                 await task.run()
-                print(f"finished task {type(task)}")
             except Exception as e:
                 errors.append(e)
 
