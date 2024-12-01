@@ -1,4 +1,4 @@
-import datetime
+import uuid
 import json
 import os
 from contextlib import contextmanager, suppress
@@ -14,14 +14,12 @@ from cog_safe_push.main import cog_safe_push
 from cog_safe_push.task_context import make_task_context
 from cog_safe_push.tasks import AIOutput, ExactStringOutput, ExactURLOutput
 
-log.set_verbosity(3)
+log.set_verbosity(2)
 
 
 def test_cog_safe_push():
     model_owner = "replicate-internal"
-    model_name = "test-cog-safe-push-" + datetime.datetime.now().strftime(
-        "%y%m%d-%H%M%S"
-    )
+    model_name = generate_model_name()
     test_model_name = model_name + "-test"
     create_model(model_owner, model_name)
 
@@ -89,9 +87,7 @@ def test_cog_safe_push():
 
 def test_cog_safe_push_images():
     model_owner = "replicate-internal"
-    model_name = "test-cog-safe-push-" + datetime.datetime.now().strftime(
-        "%y%m%d-%H%M%S"
-    )
+    model_name = generate_model_name()
     test_model_name = model_name + "-test"
     create_model(model_owner, model_name)
 
@@ -161,9 +157,7 @@ def test_cog_safe_push_images():
 
 def test_cog_safe_push_images_with_seed():
     model_owner = "replicate-internal"
-    model_name = "test-cog-safe-push-" + datetime.datetime.now().strftime(
-        "%y%m%d-%H%M%S"
-    )
+    model_name = generate_model_name()
     test_model_name = model_name + "-test"
     create_model(model_owner, model_name)
 
@@ -189,9 +183,7 @@ def test_cog_safe_push_images_with_seed():
 
 def test_cog_safe_push_train():
     model_owner = "replicate-internal"
-    model_name = "test-cog-safe-push-" + datetime.datetime.now().strftime(
-        "%y%m%d-%H%M%S"
-    )
+    model_name = generate_model_name()
     test_model_name = model_name + "-test"
     create_model(model_owner, model_name)
 
@@ -230,6 +222,10 @@ def test_cog_safe_push_train():
         delete_model(model_owner, model_name)
         delete_model(model_owner, test_model_name)
         delete_model(model_owner, test_model_name + "-dest")
+
+
+def generate_model_name():
+    return "test-cog-safe-push-" + uuid.uuid4().hex
 
 
 def create_model(model_owner, model_name):

@@ -66,8 +66,8 @@ def test_parse_args_fuzz_options(monkeypatch):
             "key1=value1;key2=42",
             "--fuzz-disabled-inputs",
             "key3;key4",
-            "--fuzz-duration",
-            "120",
+            "--fuzz-iterations",
+            "5",
         ],
     )
     config, _ = parse_args_and_config()
@@ -75,7 +75,7 @@ def test_parse_args_fuzz_options(monkeypatch):
     assert config.predict.fuzz is not None
     assert config.predict.fuzz.fixed_inputs == {"key1": "value1", "key2": 42}
     assert config.predict.fuzz.disabled_inputs == ["key3", "key4"]
-    assert config.predict.fuzz.duration == 120
+    assert config.predict.fuzz.iterations == 5
 
 
 def test_parse_args_test_case(monkeypatch):
@@ -139,7 +139,7 @@ def test_parse_config_file(tmp_path, monkeypatch):
           key1: value1
         disabled_inputs:
           - key2
-        duration: 150
+        iterations: 15
     """
     config_file = tmp_path / "cog-safe-push.yaml"
     config_file.write_text(config_yaml)
@@ -159,7 +159,7 @@ def test_parse_config_file(tmp_path, monkeypatch):
     assert config.predict.test_cases[0].exact_string == "expected output"
     assert config.predict.fuzz.fixed_inputs == {"key1": "value1"}
     assert config.predict.fuzz.disabled_inputs == ["key2"]
-    assert config.predict.fuzz.duration == 150
+    assert config.predict.fuzz.iterations == 15
 
 
 def test_config_override_with_args(tmp_path, monkeypatch):
@@ -261,8 +261,7 @@ def test_parse_config_with_train(tmp_path, monkeypatch):
             input1: value1
           match_prompt: An AI generated output
       fuzz:
-        duration: 300
-        iterations: 10
+        iterations: 8
     """
     config_file = tmp_path / "cog-safe-push.yaml"
     config_file.write_text(config_yaml)
@@ -280,8 +279,7 @@ def test_parse_config_with_train(tmp_path, monkeypatch):
     assert len(config.train.test_cases) == 1
     assert config.train.test_cases[0].inputs == {"input1": "value1"}
     assert config.train.test_cases[0].match_prompt == "An AI generated output"
-    assert config.train.fuzz.duration == 300
-    assert config.train.fuzz.iterations == 10
+    assert config.train.fuzz.iterations == 8
 
 
 def test_parse_args_with_default_config(tmp_path, monkeypatch):
@@ -376,7 +374,7 @@ def test_parse_config_missing_fuzz_section(tmp_path, monkeypatch):
     config_file.write_text(config_yaml)
     monkeypatch.setattr(
         "sys.argv",
-        ["cog-safe-push", "--config", str(config_file), "--fuzz-duration", "600"],
+        ["cog-safe-push", "--config", str(config_file), "--fuzz-iterations", "20"],
     )
 
     with pytest.raises(ArgumentError, match="missing a predict.fuzz section"):

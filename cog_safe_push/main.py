@@ -2,6 +2,7 @@ import argparse
 import asyncio
 import re
 import sys
+from asyncio import Queue
 from pathlib import Path
 from typing import Any
 
@@ -11,7 +12,6 @@ from replicate.exceptions import ReplicateError
 
 from . import cog, lint, log, schema
 from .config import (
-    DEFAULT_FUZZ_DURATION,
     DEFAULT_PREDICT_TIMEOUT,
     Config,
     FuzzConfig,
@@ -28,6 +28,7 @@ from .tasks import (
     ExactURLOutput,
     ExpectedOutput,
     FuzzModel,
+    MakeFuzzInputs,
     RunTestCase,
     Task,
 )
@@ -107,14 +108,8 @@ def parse_args_and_config() -> tuple[Config, bool]:
         default=argparse.SUPPRESS,
     )
     parser.add_argument(
-        "--fuzz-duration",
-        help=f"Number of seconds to run fuzzing. Set to 0 for no fuzzing. Default: {DEFAULT_FUZZ_DURATION}",
-        type=int,
-        default=argparse.SUPPRESS,
-    )
-    parser.add_argument(
         "--fuzz-iterations",
-        help="Maximum number of iterations to run fuzzing. Leave blank to run for the full --fuzz-seconds",
+        help="Maximum number of iterations to run fuzzing.",
         type=int,
         default=argparse.SUPPRESS,
     )
@@ -166,7 +161,6 @@ def parse_args_and_config() -> tuple[Config, bool]:
     config.predict_override("predict_timeout", args, "predict_timeout")
     config.predict_fuzz_override("fixed_inputs", args, "fuzz_fixed_inputs")
     config.predict_fuzz_override("disabled_inputs", args, "fuzz_disabled_inputs")
-    config.predict_fuzz_override("duration", args, "fuzz_duration")
     config.predict_fuzz_override("iterations", args, "fuzz_iterations")
 
     if not config.test_model:
@@ -325,15 +319,25 @@ def cog_safe_push(
                 )
             )
 
-    for _ in range(fuzz_iterations):
+    if fuzz_iterations > 0:
+        fuzz_inputs_queue = Queue(maxsize=fuzz_iterations)
         tasks.append(
-            FuzzModel(
+            MakeFuzzInputs(
                 context=task_context,
+                inputs_queue=fuzz_inputs_queue,
+                num_inputs=fuzz_iterations,
                 fixed_inputs=fuzz_fixed_inputs,
                 disabled_inputs=fuzz_disabled_inputs,
-                predict_timeout=predict_timeout,
             )
         )
+        for _ in range(fuzz_iterations):
+            tasks.append(
+                FuzzModel(
+                    context=task_context,
+                    inputs_queue=fuzz_inputs_queue,
+                    predict_timeout=predict_timeout,
+                )
+            )
 
     asyncio.run(run_tasks(tasks, parallel=parallel))
 
@@ -353,7 +357,9 @@ async def run_tasks(tasks: list[Task], parallel: int) -> None:
     async def run_with_semaphore(task: Task) -> None:
         async with semaphore:
             try:
+                print(f"starting task {type(task)}")
                 await task.run()
+                print(f"finished task {type(task)}")
             except Exception as e:
                 errors.append(e)
 

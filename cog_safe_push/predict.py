@@ -157,6 +157,8 @@ Short speech:
 * https://storage.googleapis.com/cog-safe-push-public/de-experiment-german-word.ogg
 * https://storage.googleapis.com/cog-safe-push-public/de-ionendosis-german-word.ogg
 
+If the schema has default values for some of the inputs, feel free to either use the defaults or come up with new values.
+
     """
     )
 
@@ -178,7 +180,7 @@ Short speech:
         inputs_history_str = "\n".join(["* " + json.dumps(i) for i in inputs_history])
         prompt += f"""
 
-Return a new combination of inputs that you haven't used before. You have previously used these inputs:
+Return a new combination of inputs that you haven't used before, ideally that's quite diverse from inputs you've used before. You have previously used these inputs:
 {inputs_history_str}"""
 
     inputs = await ai.json_object(prompt)
@@ -236,13 +238,17 @@ async def predict(
         )
     else:
         try:
-            prediction = await replicate.predictions.async_create(
+            # await async_create doesn't seem to work here, throws
+            # RuntimeError: Event loop is closed
+            # But since we're async sleeping this should only block
+            # a very short time
+            prediction = replicate.predictions.create(
                 version=model.versions.list()[0].id, input=inputs
             )
         except ReplicateError as e:
             if e.status == 404:
                 # Assume it's an official model
-                prediction = await replicate.predictions.async_create(
+                prediction = replicate.predictions.create(
                     model=model, input=inputs
                 )
             else:

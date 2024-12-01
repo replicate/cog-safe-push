@@ -1,3 +1,5 @@
+import asyncio
+from asyncio import Queue
 from dataclasses import dataclass
 from typing import Any, Protocol
 
@@ -146,33 +148,49 @@ class RunTestCase(Task):
                 raise TestCaseFailedError(f"Test case failed: AI error: {str(e)}")
 
 
-# TODO(andreas): need to make inputs history work
 @dataclass
-class FuzzModel(Task):
+class MakeFuzzInputs(Task):
     context: TaskContext
+    num_inputs: int
+    inputs_queue: Queue[dict[str, Any]]
     fixed_inputs: dict
     disabled_inputs: list[str]
-    predict_timeout: int
 
     async def run(self) -> None:
         schemas = schema.get_schemas(
             self.context.test_model, train=self.context.is_train()
         )
-        predict_inputs, _ = await make_predict_inputs(
-            schemas,
-            train=self.context.is_train(),
-            only_required=False,
-            seed=None,
-            fixed_inputs=self.fixed_inputs,
-            disabled_inputs=self.disabled_inputs,
-        )
-        log.v(f"Fuzzing with inputs: {predict_inputs}")
+        inputs_history = []
+        for _ in range(self.num_inputs):
+            inputs, _ = await make_predict_inputs(
+                schemas,
+                train=self.context.is_train(),
+                only_required=False,
+                seed=None,
+                fixed_inputs=self.fixed_inputs,
+                disabled_inputs=self.disabled_inputs,
+                inputs_history=inputs_history,
+            )
+            await self.inputs_queue.put(inputs)
+            inputs_history.append(inputs)
+
+
+@dataclass
+class FuzzModel(Task):
+    context: TaskContext
+    inputs_queue: Queue[dict[str, Any]]
+    predict_timeout: int
+
+    async def run(self) -> None:
+        inputs = await asyncio.wait_for(self.inputs_queue.get(), timeout=60)
+
+        log.v(f"Fuzzing with inputs: {inputs}")
         try:
             output = await predict(
                 model=self.context.test_model,
                 train=self.context.is_train(),
                 train_destination=self.context.train_destination,
-                inputs=predict_inputs,
+                inputs=inputs,
                 timeout_seconds=self.predict_timeout,
             )
         except PredictionTimeoutError:

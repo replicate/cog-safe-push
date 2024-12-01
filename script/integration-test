@@ -1,3 +1,3 @@
 #!/bin/bash -eu
 
-pytest -s integration_test/
+pytest -n4 -s integration-test/

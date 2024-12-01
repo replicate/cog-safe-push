@@ -76,34 +76,39 @@ async def call(
     model = "claude-3-5-sonnet-20241022"
     client = anthropic.AsyncAnthropic(api_key=api_key)
 
-    if files:
-        content = create_content_list(files)
+    try:
+        if files:
+            content = create_content_list(files)
 
-        if include_file_metadata:
-            prompt += "\n\nMetadata for the attached file(s):\n"
-            for path in files:
-                prompt += "* " + file_info(path) + "\n"
+            if include_file_metadata:
+                prompt += "\n\nMetadata for the attached file(s):\n"
+                for path in files:
+                    prompt += "* " + file_info(path) + "\n"
 
-        content.append({"type": "text", "text": prompt})
+            content.append({"type": "text", "text": prompt})
 
-        log.vvv(f"Claude prompt with {len(files)} files: {prompt}")
-    else:
-        content = prompt
-        log.vvv(f"Claude prompt: {prompt}")
+            log.vvv(f"Claude prompt with {len(files)} files: {prompt}")
+        else:
+            content = prompt
+            log.vvv(f"Claude prompt: {prompt}")
 
-    messages: list[anthropic.types.MessageParam] = [
-        {"role": "user", "content": content}
-    ]
+        messages: list[anthropic.types.MessageParam] = [
+            {"role": "user", "content": content}
+        ]
 
-    response = await client.messages.create(
-        model=model,
-        messages=messages,
-        system=system_prompt,
-        max_tokens=4096,
-        stream=False,
-        temperature=1.0,
-    )
-    content = cast(anthropic.types.TextBlock, response.content[0])
+        response = await client.messages.create(
+            model=model,
+            messages=messages,
+            system=system_prompt,
+            max_tokens=4096,
+            stream=False,
+            temperature=1.0,
+        )
+        content = cast(anthropic.types.TextBlock, response.content[0])
+
+    finally:
+        await client.close()
+
     output = content.text
     log.vvv(f"Claude response: {output}")
     return output

@@ -29,6 +29,11 @@ positive_images = {
         "an anime illustration",
         "a lake",
     ],
+    "https://storage.googleapis.com/cog-safe-push-public/fast-car.jpg": [
+        "An image of a car",
+        "A jpg image",
+        "A image with width 1024px and height 639px",
+    ],
 }
 
 negative_images = {

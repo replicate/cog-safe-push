@@ -12,18 +12,18 @@ from cog_safe_push.match_outputs import (
 )
 
 
-def test_identical_strings():
-    assert outputs_match("hello", "hello", True) == (True, "")
+async def test_identical_strings():
+    assert await outputs_match("hello", "hello", True) == (True, "")
 
 
-def test_different_strings_deterministic():
-    assert outputs_match("hello", "world", True) == (False, "Strings aren't the same")
+async def test_different_strings_deterministic():
+    assert await outputs_match("hello", "world", True) == (False, "Strings aren't the same")
 
 
 @patch("cog_safe_push.predict.ai.boolean")
-def test_different_strings_non_deterministic(mock_ai_boolean):
+async def test_different_strings_non_deterministic(mock_ai_boolean):
     mock_ai_boolean.return_value = True
-    assert outputs_match("The quick brown fox", "A fast auburn canine", False) == (
+    assert await outputs_match("The quick brown fox", "A fast auburn canine", False) == (
         True,
         "",
     )
@@ -31,92 +31,92 @@ def test_different_strings_non_deterministic(mock_ai_boolean):
 
     mock_ai_boolean.reset_mock()
     mock_ai_boolean.return_value = False
-    assert outputs_match(
+    assert await outputs_match(
         "The quick brown fox", "Something completely different", False
     ) == (False, "Strings aren't similar")
     mock_ai_boolean.assert_called_once()
 
 
-def test_identical_booleans():
-    assert outputs_match(True, True, True) == (True, "")
+async def test_identical_booleans():
+    assert await outputs_match(True, True, True) == (True, "")
 
 
-def test_different_booleans():
-    assert outputs_match(True, False, True) == (False, "Booleans aren't identical")
+async def test_different_booleans():
+    assert await outputs_match(True, False, True) == (False, "Booleans aren't identical")
 
 
-def test_identical_integers():
-    assert outputs_match(42, 42, True) == (True, "")
+async def test_identical_integers():
+    assert await outputs_match(42, 42, True) == (True, "")
 
 
-def test_different_integers():
-    assert outputs_match(42, 43, True) == (False, "Integers aren't identical")
+async def test_different_integers():
+    assert await outputs_match(42, 43, True) == (False, "Integers aren't identical")
 
 
-def test_close_floats():
-    assert outputs_match(3.14, 3.14001, True) == (True, "")
+async def test_close_floats():
+    assert await outputs_match(3.14, 3.14001, True) == (True, "")
 
 
-def test_different_floats():
-    assert outputs_match(3.14, 3.25, True) == (False, "Floats aren't identical")
+async def test_different_floats():
+    assert await outputs_match(3.14, 3.25, True) == (False, "Floats aren't identical")
 
 
-def test_identical_dicts():
+async def test_identical_dicts():
     dict1 = {"a": 1, "b": "hello"}
     dict2 = {"a": 1, "b": "hello"}
-    assert outputs_match(dict1, dict2, True) == (True, "")
+    assert await outputs_match(dict1, dict2, True) == (True, "")
 
 
-def test_different_dict_values():
+async def test_different_dict_values():
     dict1 = {"a": 1, "b": "hello"}
     dict2 = {"a": 1, "b": "world"}
-    assert outputs_match(dict1, dict2, True) == (False, "In b: Strings aren't the same")
+    assert await outputs_match(dict1, dict2, True) == (False, "In b: Strings aren't the same")
 
 
-def test_different_dict_keys():
+async def test_different_dict_keys():
     dict1 = {"a": 1, "b": "hello"}
     dict2 = {"a": 1, "c": "hello"}
-    assert outputs_match(dict1, dict2, True) == (False, "Dict keys don't match")
+    assert await outputs_match(dict1, dict2, True) == (False, "Dict keys don't match")
 
 
-def test_identical_lists():
+async def test_identical_lists():
     list1 = [1, "hello", True]
     list2 = [1, "hello", True]
-    assert outputs_match(list1, list2, True) == (True, "")
+    assert await outputs_match(list1, list2, True) == (True, "")
 
 
-def test_different_list_values():
+async def test_different_list_values():
     list1 = [1, "hello", True]
     list2 = [1, "world", True]
-    assert outputs_match(list1, list2, True) == (
+    assert await outputs_match(list1, list2, True) == (
         False,
         "At index 1: Strings aren't the same",
     )
 
 
-def test_different_list_lengths():
+async def test_different_list_lengths():
     list1 = [1, 2, 3]
     list2 = [1, 2]
-    assert outputs_match(list1, list2, True) == (False, "List lengths don't match")
+    assert await outputs_match(list1, list2, True) == (False, "List lengths don't match")
 
 
-def test_nested_structures():
+async def test_nested_structures():
     struct1 = {"a": [1, {"b": "hello"}], "c": True}
     struct2 = {"a": [1, {"b": "hello"}], "c": True}
-    assert outputs_match(struct1, struct2, True) == (True, "")
+    assert await outputs_match(struct1, struct2, True) == (True, "")
 
 
-def test_different_nested_structures():
+async def test_different_nested_structures():
     struct1 = {"a": [1, {"b": "hello"}], "c": True}
     struct2 = {"a": [1, {"b": "world"}], "c": True}
-    assert outputs_match(struct1, struct2, True) == (
+    assert await outputs_match(struct1, struct2, True) == (
         False,
         "In a: At index 1: In b: Strings aren't the same",
     )
 
 
-def test_different_types():
-    assert outputs_match("42", 42, True) == (
+async def test_different_types():
+    assert await outputs_match("42", 42, True) == (
         False,
         "The types of the outputs don't match",
     )

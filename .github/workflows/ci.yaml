@@ -46,3 +46,43 @@ jobs:
     - name: Run pytest
       run: |
         ./script/unit-test
+
+  integration-test:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v3
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+
+    - name: Install dependencies
+      run: |
+        pip install -r requirements-test.txt
+        pip install .
+
+    - name: Run pytest
+      run: |
+        ./script/integration-test
+
+  end-to-end-test:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v3
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+
+    - name: Install dependencies
+      run: |
+        pip install -r requirements-test.txt
+        pip install .
+
+    - name: Run pytest
+      run: |
+        ./script/end-to-end-test

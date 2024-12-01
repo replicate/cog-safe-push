@@ -36,7 +36,6 @@ class FuzzConfig(BaseModel):
 
     fixed_inputs: dict[str, InputScalar] = {}
     disabled_inputs: list[str] = []
-    duration: int = DEFAULT_FUZZ_DURATION
     iterations: int = 10
 
 

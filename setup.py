@@ -7,7 +7,7 @@ setup(
     version="0.0.1",
     packages=find_packages(),
     install_requires=[
-        "replicate>=0.31.0,<1",
+        "replicate>=1.0.3,<2",
         "anthropic>=0.21.3,<1",
         "pillow>=10.0.0",
         "ruff>=0.6.1,<1",

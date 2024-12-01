@@ -1,0 +1,3 @@
+#!/bin/bash -eu
+
+pytest -s end-to-end-test/
