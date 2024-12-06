@@ -1,3 +1,4 @@
+import sys
 import argparse
 
 from pydantic import BaseModel, ConfigDict, model_validator
@@ -37,6 +38,14 @@ class FuzzConfig(BaseModel):
     fixed_inputs: dict[str, InputScalar] = {}
     disabled_inputs: list[str] = []
     iterations: int = 10
+    duration: int | None = None
+
+    @model_validator(mode="after")
+    def warn_duration_deprecated(self):
+        if self.duration is not None:
+            print("fuzz duration is deprecated", file=sys.stderr)
+            self.fuzz_duration = None
+        return self
 
 
 class PredictConfig(BaseModel):
