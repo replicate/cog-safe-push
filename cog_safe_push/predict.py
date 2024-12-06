@@ -251,7 +251,7 @@ async def predict(
             else:
                 raise
 
-    log.vv(f"Prediction URL: https://replicate.com/p/{prediction.id}")
+    log.v(f"Prediction URL: https://replicate.com/p/{prediction.id}")
 
     while prediction.status not in ["succeeded", "failed", "canceled"]:
         await asyncio.sleep(0.5)
@@ -263,7 +263,7 @@ async def predict(
         raise PredictionFailedError(prediction.error)
 
     duration = time.time() - start_time
-    log.vv(f"Got output: {truncate(prediction.output)}  ({duration:.2f} sec)")
+    log.v(f"Got output: {truncate(prediction.output)}  ({duration:.2f} sec)")
 
     return prediction.output
 

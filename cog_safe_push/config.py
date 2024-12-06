@@ -44,7 +44,7 @@ class FuzzConfig(BaseModel):
     def warn_duration_deprecated(self):
         if self.duration is not None:
             print("fuzz duration is deprecated", file=sys.stderr)
-            self.fuzz_duration = None
+            self.duration = None
         return self
 
 

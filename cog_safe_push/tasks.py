@@ -50,6 +50,10 @@ class CheckOutputsMatch(Task):
     async def run(self) -> None:
         if self.first_test_case_inputs is not None:
             inputs = self.first_test_case_inputs
+
+            # TODO(andreas): This is weird, it means that if the first
+            # input doesn't have a seed, the output comparison is
+            # non-deterministic
             is_deterministic = "seed" in inputs
         else:
             schemas = schema.get_schemas(
