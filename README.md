@@ -52,7 +52,8 @@ on:
 
 jobs:
   cog-safe-push:
-    runs-on: ubuntu-latest-4-cores
+    # Tip: Create custom runners in your GitHub organization for faster builds
+    runs-on: ubuntu-latest
 
     steps:
     - uses: actions/checkout@v3
