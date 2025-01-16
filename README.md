@@ -36,6 +36,56 @@ This will:
 
 Both the creation of model inputs and comparison of model outputs is handled by Claude.
 
+## Example GitHub Actions workflow
+
+Create a new workflow file in `.github/workflows/cog-safe-push.yaml` and add the following:
+
+```yaml
+name: Cog Safe Push
+
+on:
+  workflow_dispatch:
+    inputs:
+      model:
+        description: 'The name of the model to push in the format owner/model-name'
+        type: string
+
+jobs:
+  cog-safe-push:
+    # Tip: Create custom runners in your GitHub organization for faster builds
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v3
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: "3.12"
+
+    - name: Install Cog
+      run: |
+        sudo curl -o /usr/local/bin/cog -L https://github.com/replicate/cog/releases/latest/download/cog_`uname -s`_`uname -m`
+        sudo chmod +x /usr/local/bin/cog
+
+    - name: cog login
+      run: |
+        echo ${{ secrets.COG_TOKEN }} | cog login --token-stdin
+
+    - name: Install cog-safe-push
+      run: |
+        pip install git+https://github.com/replicate/cog-safe-push.git
+
+    - name: Push selected models
+      env:
+        ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        REPLICATE_API_TOKEN: ${{ secrets.REPLICATE_API_TOKEN }}
+      run: |
+        cog-safe-push ${{ inputs.model }}
+```
+
+After pushing this workflow to the main branch, you can run it manually from the Actions tab.
+
 ### Full help text
 
 ```
