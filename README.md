@@ -65,7 +65,7 @@ jobs:
 
     - name: Install Cog
       run: |
-        sudo curl -o /usr/local/bin/cog -L "https://github.com/replicate/cog/releases/download/v0.10.0-alpha27/cog_$(uname -s)_$(uname -m)"
+        sudo curl -o /usr/local/bin/cog -L https://github.com/replicate/cog/releases/latest/download/cog_`uname -s`_`uname -m`
         sudo chmod +x /usr/local/bin/cog
 
     - name: cog login
