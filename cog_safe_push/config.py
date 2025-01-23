@@ -1,5 +1,5 @@
-import sys
 import argparse
+import sys
 
 from pydantic import BaseModel, ConfigDict, model_validator
 
