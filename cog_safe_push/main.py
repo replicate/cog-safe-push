@@ -236,6 +236,7 @@ def run_config(config: Config, no_push: bool):
             test_hardware=config.test_hardware,
             dockerfile=config.dockerfile,
             train=False,
+            push_test_model=config.train is None,
         )
         cog_safe_push(
             task_context=task_context,
