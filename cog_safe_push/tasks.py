@@ -137,8 +137,10 @@ class RunTestCase(Task):
                 )
                 if not matches:
                     raise TestCaseFailedError(
-                        f"Test case failed: URL mismatch. {error}"
+                        f"Test case failed: file at URL {self.output.url} does not match file at URL {output_url}. {error}"
                     )
+                else: 
+                    log.info(f"File at URL {self.output.url} matched file at URL {output_url}")
             else:
                 raise TestCaseFailedError(
                     f"Test case failed: Expected URL, got '{truncate(output, 200)}'"
