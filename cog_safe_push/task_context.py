@@ -30,6 +30,7 @@ def make_task_context(
     train_destination_owner: str | None = None,
     train_destination_name: str | None = None,
     train_destination_hardware: str = "cpu",
+    push_test_model=True,
 ) -> TaskContext:
     if model_owner == test_model_owner and model_name == test_model_name:
         raise ArgumentError("Can't use the same model as test model")
@@ -49,13 +50,26 @@ def make_task_context(
     else:
         train_destination = None
 
+    context = TaskContext(
+        model=model,
+        test_model=test_model,
+        train_destination=train_destination,
+        dockerfile=dockerfile,
+    )
+
+    if not push_test_model:
+        log.info(
+            "Not pushing test model; assume test model was already pushed for training"
+        )
+        return context
+
     log.info("Pushing test model")
     pushed_version_id = cog.push(test_model, dockerfile)
     test_model.reload()
     try:
-        assert (
-            test_model.versions.list()[0].id == pushed_version_id
-        ), f"Pushed version ID {pushed_version_id} doesn't match latest version on {test_model_owner}/{test_model_name}: {test_model.versions.list()[0].id}"
+        assert test_model.versions.list()[0].id == pushed_version_id, (
+            f"Pushed version ID {pushed_version_id} doesn't match latest version on {test_model_owner}/{test_model_name}: {test_model.versions.list()[0].id}"
+        )
     except ReplicateError as e:
         if e.status == 404:
             # Assume it's an official model
@@ -63,13 +77,7 @@ def make_task_context(
             pass
         else:
             raise
-
-    return TaskContext(
-        model=model,
-        test_model=test_model,
-        train_destination=train_destination,
-        dockerfile=dockerfile,
-    )
+    return context
 
 
 def get_or_create_model(model_owner, model_name, hardware) -> Model:

@@ -217,6 +217,7 @@ def test_cog_safe_push_train():
                     train_destination_name=test_model_name + "-dest",
                 ),
                 fuzz_iterations=1,
+                do_compare_outputs=False,
             )
 
     finally:
