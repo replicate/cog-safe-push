@@ -1,11 +1,12 @@
 import asyncio
 import json
 import time
-from typing import Any
+from typing import Any, cast
 
 import replicate
 from replicate.exceptions import ReplicateError
 from replicate.model import Model
+from replicate.run import _has_output_iterator_array_type
 
 from . import ai, log
 from .exceptions import (
@@ -226,10 +227,11 @@ async def predict(
     )
 
     start_time = time.time()
+    version = model.versions.list()[0]
 
     if train:
         assert train_destination
-        version_ref = f"{model.owner}/{model.name}:{model.versions.list()[0].id}"
+        version_ref = f"{model.owner}/{model.name}:{version.id}"
         prediction = replicate.trainings.create(
             version=version_ref,
             input=inputs,
@@ -241,9 +243,7 @@ async def predict(
             # RuntimeError: Event loop is closed
             # But since we're async sleeping this should only block
             # a very short time
-            prediction = replicate.predictions.create(
-                version=model.versions.list()[0].id, input=inputs
-            )
+            prediction = replicate.predictions.create(version=version.id, input=inputs)
         except ReplicateError as e:
             if e.status == 404:
                 # Assume it's an official model
@@ -265,7 +265,12 @@ async def predict(
     duration = time.time() - start_time
     log.v(f"Got output: {truncate(prediction.output)}  ({duration:.2f} sec)")
 
-    return prediction.output
+    output = prediction.output
+
+    if _has_output_iterator_array_type(version):
+        output = "".join(cast(list[str], output))
+
+    return output
 
 
 def truncate(s, max_length=500) -> str:
