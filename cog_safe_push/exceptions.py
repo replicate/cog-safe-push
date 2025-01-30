@@ -30,12 +30,11 @@ class PredictionTimeoutError(CogSafePushError):
     pass
 
 
-class PredictionFailedError(CogSafePushError):
-    pass
-
-
 class TestCaseFailedError(CogSafePushError):
-    pass
+    __test__ = False
+
+    def __init__(self, message):
+        super().__init__(f"Test case failed: {message}")
 
 
 class AIError(Exception):
