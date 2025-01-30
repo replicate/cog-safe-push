@@ -11,9 +11,9 @@ from replicate.run import _has_output_iterator_array_type
 from . import ai, log
 from .exceptions import (
     AIError,
-    PredictionFailedError,
     PredictionTimeoutError,
 )
+from .utils import truncate
 
 
 async def make_predict_inputs(
@@ -221,7 +221,7 @@ async def predict(
     train_destination: Model | None,
     inputs: dict,
     timeout_seconds: float,
-):
+) -> tuple[Any | None, str | None]:
     log.vv(
         f"Running {'training' if train else 'prediction'} with inputs:\n{json.dumps(inputs, indent=2)}"
     )
@@ -259,10 +259,12 @@ async def predict(
             raise PredictionTimeoutError()
         prediction.reload()
 
-    if prediction.status == "failed":
-        raise PredictionFailedError(prediction.error)
-
     duration = time.time() - start_time
+
+    if prediction.status == "failed":
+        log.v(f"Got error: {prediction.error}  ({duration:.2f} sec)")
+        return None, prediction.error
+
     log.v(f"Got output: {truncate(prediction.output)}  ({duration:.2f} sec)")
 
     output = prediction.output
@@ -270,11 +272,4 @@ async def predict(
     if _has_output_iterator_array_type(version):
         output = "".join(cast(list[str], output))
 
-    return output
-
-
-def truncate(s, max_length=500) -> str:
-    s = str(s)
-    if len(s) <= max_length:
-        return s
-    return s[:max_length] + "..."
+    return output, None

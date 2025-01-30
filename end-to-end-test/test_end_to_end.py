@@ -12,8 +12,14 @@ from replicate.exceptions import ReplicateException
 from cog_safe_push import log
 from cog_safe_push.exceptions import *
 from cog_safe_push.main import cog_safe_push
+from cog_safe_push.output_checkers import (
+    AIChecker,
+    ErrorContainsChecker,
+    ExactStringChecker,
+    MatchURLChecker,
+    NoChecker,
+)
 from cog_safe_push.task_context import make_task_context
-from cog_safe_push.tasks import AIOutput, ExactStringOutput, ExactURLOutput
 
 log.set_verbosity(2)
 
@@ -33,11 +39,11 @@ def test_cog_safe_push():
                 test_cases=[
                     (
                         {"text": "world"},
-                        ExactStringOutput("hello world"),
+                        ExactStringChecker("hello world"),
                     ),
                     (
                         {"text": "world"},
-                        AIOutput("the text hello world"),
+                        AIChecker("the text hello world"),
                     ),
                 ],
             )
@@ -81,6 +87,24 @@ def test_cog_safe_push():
                     ),
                 )
 
+        with fixture_dir("additive-schema-fuzz-error"):
+            cog_safe_push(
+                make_task_context(
+                    model_owner, model_name, model_owner, test_model_name, "cpu"
+                ),
+                test_cases=[
+                    (
+                        {"text": "world", "qux": 2},
+                        ExactStringChecker("hello world"),
+                    ),
+                    (
+                        {"text": "world", "qux": 1},
+                        ErrorContainsChecker("qux"),
+                    ),
+                ],
+                fuzz_iterations=0,
+            )
+
     finally:
         delete_model(model_owner, model_name)
         delete_model(model_owner, test_model_name)
@@ -105,7 +129,7 @@ def test_cog_safe_push_images():
                             "width": 1024,
                             "height": 639,
                         },
-                        ExactURLOutput(
+                        MatchURLChecker(
                             "https://storage.googleapis.com/cog-safe-push-public/fast-car.jpg"
                         ),
                     ),
@@ -115,7 +139,7 @@ def test_cog_safe_push_images():
                             "width": 200,
                             "height": 100,
                         },
-                        AIOutput("An image of a car"),
+                        AIChecker("An image of a car"),
                     ),
                     (
                         {
@@ -123,7 +147,7 @@ def test_cog_safe_push_images():
                             "width": 200,
                             "height": 100,
                         },
-                        AIOutput("A jpg image"),
+                        AIChecker("A jpg image"),
                     ),
                     (
                         {
@@ -131,7 +155,7 @@ def test_cog_safe_push_images():
                             "width": 200,
                             "height": 100,
                         },
-                        AIOutput("A image with width 200px and height 100px"),
+                        AIChecker("A image with width 200px and height 100px"),
                     ),
                     (
                         {
@@ -139,7 +163,7 @@ def test_cog_safe_push_images():
                             "width": 200,
                             "height": 100,
                         },
-                        None,
+                        NoChecker(),
                     ),
                 ],
             )

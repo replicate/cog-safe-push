@@ -42,11 +42,11 @@ def vvv(message):
 
 def set_verbosity(verbosity):
     global level
-    if verbosity == 0:
+    if verbosity <= 0:
         level = INFO
     if verbosity == 1:
         level = VERBOSE1
     if verbosity == 2:
         level = VERBOSE2
-    if verbosity == 3:
+    if verbosity >= 3:
         level = VERBOSE3

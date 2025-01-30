@@ -5,34 +5,14 @@ from typing import Any, Protocol
 
 from . import log, schema
 from .exceptions import (
-    AIError,
     FuzzError,
     OutputsDontMatchError,
-    PredictionFailedError,
     PredictionTimeoutError,
-    TestCaseFailedError,
 )
-from .match_outputs import is_url, output_matches_prompt, outputs_match, urls_match
-from .predict import make_predict_inputs, predict, truncate
+from .match_outputs import outputs_match
+from .output_checkers import OutputChecker
+from .predict import make_predict_inputs, predict
 from .task_context import TaskContext
-
-
-@dataclass
-class ExactStringOutput:
-    string: str
-
-
-@dataclass
-class ExactURLOutput:
-    url: str
-
-
-@dataclass
-class AIOutput:
-    prompt: str
-
-
-ExpectedOutput = ExactStringOutput | ExactURLOutput | AIOutput | None
 
 
 class Task(Protocol):
@@ -71,24 +51,34 @@ class CheckOutputsMatch(Task):
         log.v(
             f"Checking outputs match between existing version and test version, with inputs: {inputs}"
         )
-        test_output = await predict(
+        test_output, test_error = await predict(
             model=self.context.test_model,
             train=self.context.is_train(),
             train_destination=self.context.train_destination,
             inputs=inputs,
             timeout_seconds=self.timeout_seconds,
         )
-        output = await predict(
+        output, error = await predict(
             model=self.context.model,
             train=self.context.is_train(),
             train_destination=self.context.train_destination,
             inputs=inputs,
             timeout_seconds=self.timeout_seconds,
         )
-        matches, error = await outputs_match(test_output, output, is_deterministic)
+
+        if test_error is not None:
+            raise OutputsDontMatchError(
+                f"Existing version raised an error: {test_error}"
+            )
+        if error is not None:
+            raise OutputsDontMatchError(f"New version raised an error: {error}")
+
+        matches, match_error = await outputs_match(
+            test_output, output, is_deterministic
+        )
         if not matches:
             raise OutputsDontMatchError(
-                f"Outputs don't match:\n\ntest output:\n{test_output}\n\nmodel output:\n{output}\n\n{error}"
+                f"Outputs don't match:\n\ntest output:\n{test_output}\n\nmodel output:\n{output}\n\n{match_error}"
             )
 
 
@@ -96,63 +86,20 @@ class CheckOutputsMatch(Task):
 class RunTestCase(Task):
     context: TaskContext
     inputs: dict[str, Any]
-    output: ExactStringOutput | ExactURLOutput | AIOutput | None
+    checker: OutputChecker
     predict_timeout: int
 
     async def run(self) -> None:
         log.v(f"Running test case with inputs: {self.inputs}")
-        try:
-            output = await predict(
-                model=self.context.test_model,
-                train=self.context.is_train(),
-                train_destination=self.context.train_destination,
-                inputs=self.inputs,
-                timeout_seconds=self.predict_timeout,
-            )
-        except PredictionFailedError as e:
-            raise TestCaseFailedError(f"Test case failed: {str(e)}")
+        output, error = await predict(
+            model=self.context.test_model,
+            train=self.context.is_train(),
+            train_destination=self.context.train_destination,
+            inputs=self.inputs,
+            timeout_seconds=self.predict_timeout,
+        )
 
-        if self.output is None:
-            return
-
-        if isinstance(self.output, ExactStringOutput):
-            if output != self.output.string:
-                raise TestCaseFailedError(
-                    f"Test case failed: Expected '{self.output.string}', got '{truncate(output, 200)}'"
-                )
-        elif isinstance(self.output, ExactURLOutput):
-            output_url = None
-            if isinstance(output, str) and is_url(output):
-                output_url = output
-            if (
-                isinstance(output, list)
-                and len(output) == 1
-                and isinstance(output[0], str)
-                and is_url(output[0])
-            ):
-                output_url = output[0]
-            if output_url is not None:
-                matches, error = await urls_match(
-                    self.output.url, output_url, is_deterministic=True
-                )
-                if not matches:
-                    raise TestCaseFailedError(
-                        f"Test case failed: file at URL {self.output.url} does not match file at URL {output_url}. {error}"
-                    )
-                log.info(
-                    f"File at URL {self.output.url} matched file at URL {output_url}"
-                )
-            else:
-                raise TestCaseFailedError(
-                    f"Test case failed: Expected URL, got '{truncate(output, 200)}'"
-                )
-        elif isinstance(self.output, AIOutput):
-            try:
-                matches, error = await output_matches_prompt(output, self.output.prompt)
-                if not matches:
-                    raise TestCaseFailedError(f"Test case failed: {error}")
-            except AIError as e:
-                raise TestCaseFailedError(f"Test case failed: AI error: {str(e)}")
+        await self.checker(output, error)
 
 
 @dataclass
@@ -193,7 +140,7 @@ class FuzzModel(Task):
 
         log.v(f"Fuzzing with inputs: {inputs}")
         try:
-            output = await predict(
+            output, error = await predict(
                 model=self.context.test_model,
                 train=self.context.is_train(),
                 train_destination=self.context.train_destination,
@@ -202,7 +149,10 @@ class FuzzModel(Task):
             )
         except PredictionTimeoutError:
             raise FuzzError("Prediction timed out")
-        except PredictionFailedError as e:
-            raise FuzzError(f"Prediction failed: {e}")
+        if error is not None:
+            raise FuzzError(f"Prediction raised an error: {error}")
         if not output:
             raise FuzzError("No output")
+
+        if error is not None:
+            raise FuzzError(f"Prediction failed: {error}")

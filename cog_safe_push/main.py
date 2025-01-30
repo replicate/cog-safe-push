@@ -20,13 +20,17 @@ from .config import (
 )
 from .config import TestCase as ConfigTestCase
 from .exceptions import ArgumentError, CogSafePushError
+from .output_checkers import (
+    AIChecker,
+    ErrorContainsChecker,
+    ExactStringChecker,
+    MatchURLChecker,
+    NoChecker,
+    OutputChecker,
+)
 from .task_context import TaskContext, make_task_context
 from .tasks import (
-    AIOutput,
     CheckOutputsMatch,
-    ExactStringOutput,
-    ExactURLOutput,
-    ExpectedOutput,
     FuzzModel,
     MakeFuzzInputs,
     RunTestCase,
@@ -258,7 +262,7 @@ def cog_safe_push(
     train: bool = False,
     do_compare_outputs: bool = True,
     predict_timeout: int = 300,
-    test_cases: list[tuple[dict[str, Any], ExpectedOutput]] = [],
+    test_cases: list[tuple[dict[str, Any], OutputChecker]] = [],
     fuzz_fixed_inputs: dict = {},
     fuzz_disabled_inputs: list = [],
     fuzz_iterations: int = 10,
@@ -313,12 +317,12 @@ def cog_safe_push(
             )
 
     if test_cases:
-        for inputs, output in test_cases:
+        for inputs, checker in test_cases:
             tasks.append(
                 RunTestCase(
                     context=task_context,
                     inputs=inputs,
-                    output=output,
+                    checker=checker,
                     predict_timeout=predict_timeout,
                 )
             )
@@ -460,21 +464,24 @@ def parse_test_case(test_case_str: str) -> ConfigTestCase:
 
 def parse_config_test_case(
     config_test_case: ConfigTestCase,
-) -> tuple[dict[str, Any], ExpectedOutput]:
-    output = None
+) -> tuple[dict[str, Any], OutputChecker]:
     if config_test_case.exact_string:
-        output = ExactStringOutput(string=config_test_case.exact_string)
+        checker = ExactStringChecker(string=config_test_case.exact_string)
     elif config_test_case.match_url:
-        output = ExactURLOutput(url=config_test_case.match_url)
+        checker = MatchURLChecker(url=config_test_case.match_url)
     elif config_test_case.match_prompt:
-        output = AIOutput(prompt=config_test_case.match_prompt)
+        checker = AIChecker(prompt=config_test_case.match_prompt)
+    elif config_test_case.error_contains:
+        checker = ErrorContainsChecker(string=config_test_case.error_contains)
+    else:
+        checker = NoChecker()
 
-    return (config_test_case.inputs, output)
+    return (config_test_case.inputs, checker)
 
 
 def parse_config_test_cases(
     config_test_cases: list[ConfigTestCase],
-) -> list[tuple[dict[str, Any], ExpectedOutput]]:
+) -> list[tuple[dict[str, Any], OutputChecker]]:
     return [parse_config_test_case(tc) for tc in config_test_cases]
 
 
@@ -518,6 +525,10 @@ def print_help_config():
                         ConfigTestCase(
                             inputs={"<input3>": "<value3>"},
                             match_prompt="<match output using AI prompt, e.g. 'an image of a cat'>",
+                        ),
+                        ConfigTestCase(
+                            inputs={"<input3>": "<value3>"},
+                            error_contains="<assert that these inputs throws an error, and that the error message contains a string>",
                         ),
                     ],
                 ),

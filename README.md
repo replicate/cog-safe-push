@@ -172,15 +172,19 @@ predict:
     fixed_inputs: {}
   predict_timeout: 300
   test_cases:
-  - exact_string: <exact string match>
-    inputs:
+  - inputs:
       <input1>: <value1>
+    exact_string: <exact string match>
   - inputs:
       <input2>: <value2>
     match_url: <match output image against url>
   - inputs:
       <input3>: <value3>
     match_prompt: <match output using AI prompt, e.g. 'an image of a cat'>
+  - inputs:
+      <input4>: <value4>
+    error_contains: <assert error and that the error message contains a string>
+
 test_hardware: <hardware, e.g. cpu>
 test_model: <test model, or empty to append '-test' to model>
 train:
@@ -192,15 +196,18 @@ train:
     iterations: 10
     fixed_inputs: {}
   test_cases:
-  - exact_string: <exact string match>
-    inputs:
+  - inputs:
       <input1>: <value1>
+    exact_string: <exact string match>
   - inputs:
       <input2>: <value2>
     match_url: <match output image against url>
   - inputs:
       <input3>: <value3>
     match_prompt: <match output using AI prompt, e.g. 'an image of a cat'>
+  - inputs:
+      <input4>: <value4>
+    error_contains: <assert error and that the error message contains a string>
   train_timeout: 300
 
 # values between < and > should be edited
