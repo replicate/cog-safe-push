@@ -486,6 +486,25 @@ def parse_config_test_cases(
 
 
 def print_help_config():
+    test_cases = [
+        ConfigTestCase(
+            inputs={"<input1>": "<value1>"},
+            exact_string="<exact string match>",
+        ),
+        ConfigTestCase(
+            inputs={"<input2>": "<value2>"},
+            match_url="<match output image against url>",
+        ),
+        ConfigTestCase(
+            inputs={"<input3>": "<value3>"},
+            match_prompt="<match output using AI prompt, e.g. 'an image of a cat'>",
+        ),
+        ConfigTestCase(
+            inputs={"<input3>": "<value3>"},
+            error_contains="<assert that these inputs throws an error, and that the error message contains a string>",
+        ),
+    ]
+
     print(
         yaml.dump(
             Config(
@@ -494,47 +513,17 @@ def print_help_config():
                 test_hardware="<hardware, e.g. cpu>",
                 predict=PredictConfig(
                     fuzz=FuzzConfig(),
-                    test_cases=[
-                        ConfigTestCase(
-                            inputs={"<input1>": "<value1>"},
-                            exact_string="<exact string match>",
-                        ),
-                        ConfigTestCase(
-                            inputs={"<input2>": "<value2>"},
-                            match_url="<match output image against url>",
-                        ),
-                        ConfigTestCase(
-                            inputs={"<input3>": "<value3>"},
-                            match_prompt="<match output using AI prompt, e.g. 'an image of a cat'>",
-                        ),
-                    ],
+                    test_cases=test_cases,
                 ),
                 train=TrainConfig(
                     destination="<generated prediction model, e.g. andreasjansson/test-predict. leave blank to append '-dest' to the test model>",
                     destination_hardware="<hardware for the created prediction model, e.g. cpu>",
                     fuzz=FuzzConfig(),
-                    test_cases=[
-                        ConfigTestCase(
-                            inputs={"<input1>": "<value1>"},
-                            exact_string="<exact string match>",
-                        ),
-                        ConfigTestCase(
-                            inputs={"<input2>": "<value2>"},
-                            match_url="<match output image against url>",
-                        ),
-                        ConfigTestCase(
-                            inputs={"<input3>": "<value3>"},
-                            match_prompt="<match output using AI prompt, e.g. 'an image of a cat'>",
-                        ),
-                        ConfigTestCase(
-                            inputs={"<input3>": "<value3>"},
-                            error_contains="<assert that these inputs throws an error, and that the error message contains a string>",
-                        ),
-                    ],
+                    test_cases=test_cases,
                 ),
             ).model_dump(exclude_none=True),
             default_flow_style=False,
-        )
+        ),
     )
     print("# values between < and > should be edited")
 

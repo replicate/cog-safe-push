@@ -1,0 +1,38 @@
+#!/usr/bin/env python
+
+# Assumes that the correct version of cog-safe-push is installed
+
+from pathlib import Path
+import re
+import subprocess
+import sys
+
+
+def update_readme():
+    readme_path = Path("README.md")
+    content = readme_path.read_text()
+
+    pattern = r"<!-- generate: (.*?) -->\n+``` *([a-z]+)\n(.*?)```"
+
+    def replace(match):
+        cmd = match.group(1)
+        lang = match.group(2)
+        try:
+            output = subprocess.check_output(cmd.split(), text=True)
+            return f"""<!-- generate: {cmd} -->
+
+```{lang}
+# {cmd}\n\n{output}
+
+{output}```"""
+        except subprocess.CalledProcessError as e:
+            print(f"Error running '{cmd}': {e}", file=sys.stderr)
+            return match.group(0)
+
+    new_content = re.sub(pattern, replace, content, flags=re.DOTALL)
+
+    readme_path.write_text(new_content)
+
+
+if __name__ == "__main__":
+    update_readme()
