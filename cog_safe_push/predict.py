@@ -265,11 +265,10 @@ async def predict(
         log.v(f"Got error: {prediction.error}  ({duration:.2f} sec)")
         return None, prediction.error
 
-    log.v(f"Got output: {truncate(prediction.output)}  ({duration:.2f} sec)")
-
     output = prediction.output
-
     if _has_output_iterator_array_type(version):
         output = "".join(cast(list[str], output))
+
+    log.v(f"Got output: {truncate(output)}  ({duration:.2f} sec)")
 
     return output, None
