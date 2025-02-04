@@ -134,15 +134,16 @@ Now, given the following OpenAPI schemas:
 
 Generate a json payload for the {input_name} schema.
 
-If inputs have format=uri, you should use one of the following media URLs (pick an appropriate URL for the the input, e.g. one of the image examples below if the input expects an image):
-Videos:
-* https://storage.googleapis.com/cog-safe-push-public/harry-truman.webm
-* https://storage.googleapis.com/cog-safe-push-public/mariner-launch.ogv
-Images:
+If an input have format=uri and you decide to populate that input, you should use one of the following media URLs. Make sure you pick an appropriate URL for the the input, e.g. pick one of the image examples below if the input expects represents an image.
+
+Image:
 * https://storage.googleapis.com/cog-safe-push-public/skull.jpg
 * https://storage.googleapis.com/cog-safe-push-public/fast-car.jpg
 * https://storage.googleapis.com/cog-safe-push-public/forest.png
 * https://storage.googleapis.com/cog-safe-push-public/face.gif
+Video:
+* https://storage.googleapis.com/cog-safe-push-public/harry-truman.webm
+* https://storage.googleapis.com/cog-safe-push-public/mariner-launch.ogv
 Music audio:
 * https://storage.googleapis.com/cog-safe-push-public/folk-music.mp3
 * https://storage.googleapis.com/cog-safe-push-public/ocarina.ogg
