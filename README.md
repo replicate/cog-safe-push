@@ -251,8 +251,6 @@ options:
   -v, --verbose         Increase verbosity level (max 3)
 ```
 
-```
-
 ### Using a configuration file
 
 You can use a configuration file instead of passing all arguments on the command line. If you create a file called `cog-safe-push.yaml` in your Cog directory, it will be used. Any command line arguments you pass will override the values in the config file.
