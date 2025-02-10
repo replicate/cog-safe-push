@@ -2,6 +2,9 @@
 
 Safely push a Cog model version by making sure it works and is backwards-compatible with previous versions.
 
+> [!TIP]
+> Check out our [guide to building a CI/CD pipeline for your model](https://replicate.com/docs/guides/continuous-model-deployment), which includes a step-by-step walkthrough of how to use this tool.
+
 ## Prerequisites
 
 1. Set the `ANTHROPIC_API_KEY` and `REPLICATE_API_TOKEN` environment variables.
