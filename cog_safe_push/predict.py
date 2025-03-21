@@ -268,7 +268,7 @@ async def predict(
 
     output = prediction.output
     if _has_output_iterator_array_type(version):
-        output = "".join(cast(list[str], output))
+        output = "".join(cast("list[str]", output))
 
     log.v(f"Got output: {truncate(output)}  ({duration:.2f} sec)")
 

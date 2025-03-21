@@ -104,7 +104,7 @@ async def call(
             stream=False,
             temperature=1.0,
         )
-        content = cast(anthropic.types.TextBlock, response.content[0])
+        content = cast("anthropic.types.TextBlock", response.content[0])
 
     finally:
         await client.close()
