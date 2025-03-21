@@ -14,6 +14,7 @@ class TaskContext:
     test_model: Model
     train_destination: Model | None
     dockerfile: str | None
+    fast_push: bool
 
     def is_train(self):
         return self.train_destination is not None
@@ -31,6 +32,7 @@ def make_task_context(
     train_destination_name: str | None = None,
     train_destination_hardware: str = "cpu",
     push_test_model=True,
+    fast_push: bool = False,
 ) -> TaskContext:
     if model_owner == test_model_owner and model_name == test_model_name:
         raise ArgumentError("Can't use the same model as test model")
@@ -55,6 +57,7 @@ def make_task_context(
         test_model=test_model,
         train_destination=train_destination,
         dockerfile=dockerfile,
+        fast_push=fast_push,
     )
 
     if not push_test_model:
@@ -64,7 +67,7 @@ def make_task_context(
         return context
 
     log.info("Pushing test model")
-    pushed_version_id = cog.push(test_model, dockerfile)
+    pushed_version_id = cog.push(test_model, dockerfile, fast_push)
     test_model.reload()
     try:
         assert test_model.versions.list()[0].id == pushed_version_id, (

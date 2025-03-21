@@ -78,6 +78,7 @@ class Config(BaseModel):
     train: TrainConfig | None = None
     dockerfile: str | None = None
     parallel: int = 4
+    fast_push: bool = False
 
     def override(self, field: str, args: argparse.Namespace, arg: str):
         if hasattr(args, arg) and getattr(args, arg) is not None:
