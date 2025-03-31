@@ -92,6 +92,12 @@ def parse_args_and_config() -> tuple[Config, bool]:
         default=argparse.SUPPRESS,
     )
     parser.add_argument(
+        "--fast-push",
+        help="Use the --x-fast flag when doing cog push",
+        action="store_true",
+        default=argparse.SUPPRESS,
+    )
+    parser.add_argument(
         "--test-case",
         help="Inputs and expected output that will be used for testing, you can provide multiple --test-case options for multiple test cases. The first test case will be used when comparing outputs to the current version. Each --test-case is semicolon-separated key-value pairs in the format '<key1>=<value1>;<key2=value2>[<output-checker>]'. <output-checker> can either be '==<exact-string-or-url>' or '~=<ai-prompt>'. If you use '==<exact-string-or-url>' then the output of the model must match exactly the string or url you specify. If you use '~=<ai-prompt>' then the AI will verify your output based on <ai-prompt>. If you omit <output-checker>, it will just verify that the prediction doesn't throw an error.",
         action="append",
@@ -167,6 +173,7 @@ def parse_args_and_config() -> tuple[Config, bool]:
     config.override("test_model", args, "test_model")
     config.override("test_hardware", args, "test_hardware")
     config.override("parallel", args, "parallel")
+    config.override("fast_push", args, "fast_push")
     config.predict_override("test_cases", args, "test_cases")
     config.predict_override("compare_outputs", args, "compare_outputs")
     config.predict_override("predict_timeout", args, "predict_timeout")
@@ -211,6 +218,7 @@ def run_config(config: Config, no_push: bool):
             train_destination_owner=destination_owner,
             train_destination_name=destination_name,
             dockerfile=config.dockerfile,
+            fast_push=config.fast_push,
         )
 
         cog_safe_push(
@@ -241,6 +249,7 @@ def run_config(config: Config, no_push: bool):
             dockerfile=config.dockerfile,
             train=False,
             push_test_model=config.train is None,
+            fast_push=config.fast_push,
         )
         cog_safe_push(
             task_context=task_context,
@@ -353,7 +362,7 @@ def cog_safe_push(
 
     if not no_push:
         log.info("Pushing model...")
-        cog.push(task_context.model, task_context.dockerfile)
+        cog.push(task_context.model, task_context.dockerfile, task_context.fast_push)
 
 
 async def run_tasks(tasks: list[Task], parallel: int) -> None:
@@ -511,6 +520,7 @@ def print_help_config():
                 model="<model>",
                 test_model="<test model, or empty to append '-test' to model>",
                 test_hardware="<hardware, e.g. cpu>",
+                fast_push=False,
                 predict=PredictConfig(
                     fuzz=FuzzConfig(),
                     test_cases=test_cases,
