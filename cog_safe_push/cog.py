@@ -29,6 +29,11 @@ def push(model: Model, dockerfile: str | None, fast_push: bool = False) -> str:
             match = re.search(r"sha256:([a-f0-9]{64})", line)
             if match:
                 sha256_id = match.group(1)
+        # In the case of fast push, we get the version from the identifier printed to stdout
+        elif "New Version:" in line:
+            potential_sha256_id = line.split(":")[-1]
+            if bool(re.match(r"^[a-f0-9]{64}$", potential_sha256_id)):
+                sha256_id = potential_sha256_id
 
     process.wait()
 
