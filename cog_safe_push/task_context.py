@@ -70,7 +70,7 @@ def make_task_context(
     pushed_version_id = cog.push(test_model, dockerfile, fast_push)
     test_model.reload()
     try:
-        assert test_model.versions.list()[0].id == pushed_version_id, (
+        assert test_model.versions.list()[0].id.strip() == pushed_version_id.strip(), (
             f"Pushed version ID {pushed_version_id} doesn't match latest version on {test_model_owner}/{test_model_name}: {test_model.versions.list()[0].id}"
         )
     except ReplicateError as e:
