@@ -289,8 +289,8 @@ def test_cog_safe_push_ignore_incompatible_schema():
 def test_cog_safe_push_deployment():
     """Test deployment functionality with a real model."""
     model_owner = "replicate-internal"
-    model_name = generate_model_name()
-    test_model_name = model_name + "-test"
+    model_name = "cog-safe-push-deployment-test"
+    test_model_name = f"deployment-test-{generate_model_name()}"
     create_model(model_owner, model_name)
 
     try:
@@ -306,6 +306,7 @@ def test_cog_safe_push_deployment():
                     deployment_owner="replicate-internal",
                     deployment_hardware="cpu",
                 ),
+                ignore_schema_compatibility=True,
                 test_cases=[
                     (
                         {
@@ -319,7 +320,8 @@ def test_cog_safe_push_deployment():
             )
 
     finally:
-        delete_model(model_owner, model_name)
+        # Models associated with a deployment are not deleted by default
+        # We only delete the test model
         delete_model(model_owner, test_model_name)
 
 
