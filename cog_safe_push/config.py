@@ -79,6 +79,7 @@ class Config(BaseModel):
     dockerfile: str | None = None
     parallel: int = 4
     fast_push: bool = False
+    ignore_schema_compatibility: bool = False
 
     def override(self, field: str, args: argparse.Namespace, arg: str):
         if hasattr(args, arg) and getattr(args, arg) is not None:

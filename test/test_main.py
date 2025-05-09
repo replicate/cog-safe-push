@@ -127,6 +127,7 @@ def test_parse_config_file(tmp_path, monkeypatch):
     model: user/model
     test_model: user/test-model
     test_hardware: gpu
+    ignore_schema_compatibility: true
     predict:
       compare_outputs: false
       predict_timeout: 500
@@ -150,6 +151,7 @@ def test_parse_config_file(tmp_path, monkeypatch):
     assert config.model == "user/model"
     assert config.test_model == "user/test-model"
     assert config.test_hardware == "gpu"
+    assert config.ignore_schema_compatibility is True
     assert config.predict is not None
     assert config.predict.fuzz is not None
     assert not config.predict.compare_outputs
@@ -379,6 +381,14 @@ def test_parse_config_missing_fuzz_section(tmp_path, monkeypatch):
 
     with pytest.raises(ArgumentError, match="missing a predict.fuzz section"):
         parse_args_and_config()
+
+
+def test_parse_args_ignore_schema_compatibility(monkeypatch):
+    monkeypatch.setattr(
+        "sys.argv", ["cog-safe-push", "user/model", "--ignore-schema-compatibility"]
+    )
+    config, _ = parse_args_and_config()
+    assert config.ignore_schema_compatibility is True
 
 
 def test_parse_model():
