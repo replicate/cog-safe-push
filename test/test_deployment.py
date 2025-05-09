@@ -1,10 +1,10 @@
-import pytest
 from unittest.mock import Mock
 
-from cog_safe_push.config import Config, DeploymentConfig
+import pytest
+
 from cog_safe_push.deployment import (
-    handle_deployment,
     create_deployment,
+    handle_deployment,
     update_deployment,
 )
 from cog_safe_push.exceptions import CogSafePushError

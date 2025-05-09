@@ -10,7 +10,7 @@ import pydantic
 import yaml
 from replicate.exceptions import ReplicateError
 
-from . import cog, lint, log, schema, deployment
+from . import cog, deployment, lint, log, schema
 from .config import (
     DEFAULT_PREDICT_TIMEOUT,
     Config,
