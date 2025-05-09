@@ -10,7 +10,7 @@ import pydantic
 import yaml
 from replicate.exceptions import ReplicateError
 
-from . import cog, lint, log, schema
+from . import cog, lint, log, schema, deployment
 from .config import (
     DEFAULT_PREDICT_TIMEOUT,
     Config,
@@ -379,7 +379,10 @@ def cog_safe_push(
 
     if not no_push:
         log.info("Pushing model...")
-        cog.push(task_context.model, task_context.dockerfile, task_context.fast_push)
+        new_version = cog.push(
+            task_context.model, task_context.dockerfile, task_context.fast_push
+        )
+        deployment.handle_deployment(task_context, new_version)
 
 
 async def run_tasks(tasks: list[Task], parallel: int) -> None:

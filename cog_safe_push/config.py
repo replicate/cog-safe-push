@@ -68,6 +68,14 @@ class TrainConfig(BaseModel):
     fuzz: FuzzConfig | None = None
 
 
+class DeploymentConfig(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    owner: str | None = None
+    name: str | None = None
+    hardware: str | None = None
+
+
 class Config(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -76,6 +84,7 @@ class Config(BaseModel):
     test_hardware: str = "cpu"
     predict: PredictConfig | None = None
     train: TrainConfig | None = None
+    deployment: DeploymentConfig | None = None
     dockerfile: str | None = None
     parallel: int = 4
     fast_push: bool = False
