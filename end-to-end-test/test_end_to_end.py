@@ -77,6 +77,7 @@ def test_cog_safe_push():
                     model_owner, model_name, model_owner, test_model_name, "cpu"
                 ),
                 ignore_schema_compatibility=True,
+                do_compare_outputs=False,
             )
 
         with fixture_dir("outputs-dont-match"):
