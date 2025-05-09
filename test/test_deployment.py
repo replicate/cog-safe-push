@@ -206,3 +206,106 @@ def test_update_deployment_error(task_context):
 
     with pytest.raises(CogSafePushError, match="Failed to update deployment"):
         update_deployment(task_context, current_deployment, "test-version")
+
+
+def test_handle_deployment_different_owners(task_context):
+    """Test creating a deployment when model owner differs from deployment owner."""
+    task_context.model.owner = "model-owner"
+    task_context.config = Config(
+        model="model-owner/test-model",
+        deployment=DeploymentConfig(
+            name="test-deployment",
+            owner="deployment-owner",
+            hardware="cpu",
+        ),
+    )
+    task_context.client.deployments.get.side_effect = Exception("not found")
+
+    handle_deployment(task_context, "test-version")
+
+    task_context.client.deployments.create.assert_called_once_with(
+        name="test-deployment",
+        model="model-owner/test-model",
+        version="test-version",
+        hardware="cpu",
+        min_instances=1,
+        max_instances=20,
+    )
+
+
+def test_handle_deployment_update_different_owners(task_context):
+    """Test updating a deployment when model owner differs from deployment owner."""
+    task_context.model.owner = "model-owner"
+    current_deployment = Mock()
+    current_deployment.owner = "deployment-owner"
+    current_deployment.name = "test-deployment"
+    current_deployment.current_release = Mock()
+    current_deployment.current_release.version = "old-version"
+    current_deployment.current_release.configuration = Mock()
+    current_deployment.current_release.configuration.hardware = "cpu"
+    current_deployment.current_release.configuration.min_instances = 1
+    current_deployment.current_release.configuration.max_instances = 20
+
+    task_context.config = Config(
+        model="model-owner/test-model",
+        deployment=DeploymentConfig(
+            name="test-deployment",
+            owner="deployment-owner",
+            hardware="cpu",
+        ),
+    )
+    task_context.client.deployments.get.return_value = current_deployment
+
+    handle_deployment(task_context, "test-version")
+
+    task_context.client.deployments.update.assert_called_once_with(
+        deployment_owner="deployment-owner",
+        deployment_name="test-deployment",
+        version="test-version",
+    )
+
+
+def test_create_deployment_different_owners(task_context):
+    """Test creating a deployment when model owner differs from deployment owner."""
+    task_context.model.owner = "model-owner"
+    task_context.config = Config(
+        model="model-owner/test-model",
+        deployment=DeploymentConfig(
+            name="test-deployment",
+            owner="deployment-owner",
+            hardware="cpu",
+        ),
+    )
+
+    create_deployment(task_context, "test-version")
+
+    task_context.client.deployments.create.assert_called_once_with(
+        name="test-deployment",
+        model="model-owner/test-model",
+        version="test-version",
+        hardware="cpu",
+        min_instances=1,
+        max_instances=20,
+    )
+
+
+def test_update_deployment_different_owners(task_context):
+    """Test updating a deployment when model owner differs from deployment owner."""
+    task_context.model.owner = "model-owner"
+    current_deployment = Mock()
+    current_deployment.owner = "deployment-owner"
+    current_deployment.name = "test-deployment"
+    current_deployment.current_release = Mock()
+    current_deployment.current_release.version = "old-version"
+    current_deployment.current_release.configuration = Mock()
+    current_deployment.current_release.configuration.hardware = "cpu"
+    current_deployment.current_release.configuration.min_instances = 1
+    current_deployment.current_release.configuration.max_instances = 20
+
+    update_deployment(task_context, current_deployment, "test-version")
+
+    task_context.client.deployments.update.assert_called_once_with(
+        deployment_owner="deployment-owner",
+        deployment_name="test-deployment",
+        version="test-version",
+    )
