@@ -201,6 +201,15 @@ def run_config(config: Config, no_push: bool):
     model_owner, model_name = parse_model(config.model)
     test_model_owner, test_model_name = parse_model(config.test_model)
 
+    if config.deployment:
+        deployment_name = config.deployment.name
+        deployment_owner = config.deployment.owner
+        deployment_hardware = config.deployment.hardware
+    else:
+        deployment_name = None
+        deployment_owner = None
+        deployment_hardware = None
+
     # small optimization
     task_context = None
 
@@ -227,6 +236,9 @@ def run_config(config: Config, no_push: bool):
             train_destination_name=destination_name,
             dockerfile=config.dockerfile,
             fast_push=config.fast_push,
+            deployment_name=deployment_name,
+            deployment_owner=deployment_owner,
+            deployment_hardware=deployment_hardware,
         )
 
         cog_safe_push(
@@ -259,6 +271,9 @@ def run_config(config: Config, no_push: bool):
             train=False,
             push_test_model=config.train is None,
             fast_push=config.fast_push,
+            deployment_name=deployment_name,
+            deployment_owner=deployment_owner,
+            deployment_hardware=deployment_hardware,
         )
         cog_safe_push(
             task_context=task_context,

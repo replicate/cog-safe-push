@@ -4,11 +4,11 @@ from .task_context import TaskContext
 
 def handle_deployment(task_context: TaskContext, version: str) -> None:
     """Create or update a deployment for the model."""
-    if not task_context.config.deployment or not task_context.config.deployment.name:
+    if not task_context.deployment_name:
         return
 
-    deployment_name = task_context.config.deployment.name
-    deployment_owner = task_context.config.deployment.owner or task_context.model.owner
+    deployment_name = task_context.deployment_name
+    deployment_owner = task_context.deployment_owner or task_context.model.owner
 
     try:
         # Check if deployment exists
@@ -25,10 +25,8 @@ def handle_deployment(task_context: TaskContext, version: str) -> None:
 
 def create_deployment(task_context: TaskContext, version: str) -> None:
     """Create a new deployment for the model."""
-    deployment_config = task_context.config.deployment
-    deployment_name = deployment_config.name
-
-    hardware = deployment_config.hardware or "cpu"
+    deployment_name = task_context.deployment_name
+    hardware = task_context.deployment_hardware or "cpu"
     if hardware == "cpu":
         min_instances = 1
         max_instances = 20
