@@ -28,6 +28,9 @@ def handle_deployment(task_context: TaskContext, version: str) -> None:
 def create_deployment(task_context: TaskContext, version: str) -> None:
     """Create a new deployment for the model."""
     deployment_name = task_context.deployment_name
+    if not deployment_name:
+        raise CogSafePushError("Deployment name is required to create a deployment")
+
     hardware = task_context.deployment_hardware or "cpu"
     if hardware == "cpu":
         min_instances = 1
