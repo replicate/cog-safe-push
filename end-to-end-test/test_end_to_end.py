@@ -291,7 +291,6 @@ def test_cog_safe_push_deployment():
     model_owner = "replicate-internal"
     model_name = "cog-safe-push-deployment-test"
     test_model_name = f"deployment-test-{generate_model_name()}"
-    create_model(model_owner, model_name)
 
     try:
         with fixture_dir("image-base"):
