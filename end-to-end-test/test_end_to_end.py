@@ -286,6 +286,43 @@ def test_cog_safe_push_ignore_incompatible_schema():
         delete_model(model_owner, test_model_name)
 
 
+def test_cog_safe_push_deployment():
+    """Test deployment functionality with a real model."""
+    model_owner = "replicate-internal"
+    model_name = generate_model_name()
+    test_model_name = model_name + "-test"
+    create_model(model_owner, model_name)
+
+    try:
+        with fixture_dir("image-base"):
+            cog_safe_push(
+                make_task_context(
+                    model_owner=model_owner,
+                    model_name=model_name,
+                    test_model_owner=model_owner,
+                    test_model_name=test_model_name,
+                    test_hardware="cpu",
+                    deployment_name="test-deployment",
+                    deployment_owner="replicate-internal",
+                    deployment_hardware="cpu",
+                ),
+                test_cases=[
+                    (
+                        {
+                            "image": "https://storage.googleapis.com/cog-safe-push-public/fast-car.jpg",
+                            "width": 200,
+                            "height": 100,
+                        },
+                        AIChecker("An image of a car"),
+                    ),
+                ],
+            )
+
+    finally:
+        delete_model(model_owner, model_name)
+        delete_model(model_owner, test_model_name)
+
+
 def generate_model_name():
     return "test-cog-safe-push-" + uuid.uuid4().hex
 
