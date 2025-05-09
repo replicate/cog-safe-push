@@ -28,6 +28,7 @@ from .output_checkers import (
     NoChecker,
     OutputChecker,
 )
+from .schema import IncompatibleSchemaError
 from .task_context import TaskContext, make_task_context
 from .tasks import (
     CheckOutputsMatch,
@@ -130,6 +131,12 @@ def parse_args_and_config() -> tuple[Config, bool]:
         default=argparse.SUPPRESS,
     )
     parser.add_argument(
+        "--ignore-schema-compatibility",
+        help="Ignore schema compatibility checks when pushing the model",
+        action="store_true",
+        default=argparse.SUPPRESS,
+    )
+    parser.add_argument(
         "-v",
         "--verbose",
         action="count",
@@ -180,6 +187,7 @@ def parse_args_and_config() -> tuple[Config, bool]:
     config.predict_fuzz_override("fixed_inputs", args, "fuzz_fixed_inputs")
     config.predict_fuzz_override("disabled_inputs", args, "fuzz_disabled_inputs")
     config.predict_fuzz_override("iterations", args, "fuzz_iterations")
+    config.override("ignore_schema_compatibility", args, "ignore_schema_compatibility")
 
     if not config.test_model:
         config.test_model = config.model + "-test"
@@ -232,6 +240,7 @@ def run_config(config: Config, no_push: bool):
             fuzz_disabled_inputs=fuzz.disabled_inputs,
             fuzz_iterations=fuzz.iterations,
             parallel=config.parallel,
+            ignore_schema_compatibility=config.ignore_schema_compatibility,
         )
 
     if config.predict:
@@ -262,6 +271,7 @@ def run_config(config: Config, no_push: bool):
             fuzz_disabled_inputs=fuzz.disabled_inputs,
             fuzz_iterations=fuzz.iterations,
             parallel=config.parallel,
+            ignore_schema_compatibility=config.ignore_schema_compatibility,
         )
 
 
@@ -276,6 +286,7 @@ def cog_safe_push(
     fuzz_disabled_inputs: list = [],
     fuzz_iterations: int = 10,
     parallel=4,
+    ignore_schema_compatibility: bool = False,
 ):
     if no_push:
         log.info(
@@ -311,9 +322,13 @@ def cog_safe_push(
         log.info("Checking schema backwards compatibility")
         test_model_schemas = schema.get_schemas(task_context.test_model, train=train)
         model_schemas = schema.get_schemas(task_context.model, train=train)
-        schema.check_backwards_compatible(
-            test_model_schemas, model_schemas, train=train
-        )
+        try:
+            schema.check_backwards_compatible(test_model_schemas, model_schemas, train)
+        except IncompatibleSchemaError as e:
+            if ignore_schema_compatibility:
+                log.warning(f"Ignoring schema compatibility error: {e}")
+            else:
+                raise
         if do_compare_outputs:
             tasks.append(
                 CheckOutputsMatch(
