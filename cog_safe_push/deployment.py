@@ -1,5 +1,6 @@
 import replicate
 
+from . import log
 from .exceptions import CogSafePushError
 from .task_context import TaskContext
 
@@ -35,8 +36,9 @@ def create_deployment(task_context: TaskContext, version: str) -> None:
         min_instances = 0
         max_instances = 2
 
-    print(
-        f"Creating deployment {deployment_name} with {hardware} hardware, {min_instances} min instances, {max_instances} max instances"
+    log.info(f"Creating deployment {deployment_name}")
+    log.v(
+        f"Deployment configuration: {hardware} hardware, {min_instances} min instances, {max_instances} max instances"
     )
 
     try:
@@ -58,10 +60,11 @@ def update_deployment(
 ) -> None:
     """Update an existing deployment for the model."""
     current_config = current_deployment.current_release.configuration
-    print(
-        f"Updating deployment {current_deployment.name} with {current_config.hardware} hardware, {current_config.min_instances} min instances, {current_config.max_instances} max instances"
+    log.info(f"Updating deployment {current_deployment.name}")
+    log.v(
+        f"Current configuration: {current_config.hardware} hardware, {current_config.min_instances} min instances, {current_config.max_instances} max instances"
     )
-    print(
+    log.v(
         f"Changing version from {current_deployment.current_release.version} to {version}"
     )
 
