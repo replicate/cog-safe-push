@@ -1,3 +1,5 @@
+import replicate
+
 from .exceptions import CogSafePushError
 from .task_context import TaskContext
 
@@ -11,11 +13,10 @@ def handle_deployment(task_context: TaskContext, version: str) -> None:
     deployment_owner = task_context.deployment_owner or task_context.model.owner
 
     try:
-        # Check if deployment exists
-        current_deployment = task_context.client.deployments.get(
+        current_deployment = replicate.deployments.get(
             f"{deployment_owner}/{deployment_name}"
         )
-        update_deployment(task_context, current_deployment, version)
+        update_deployment(current_deployment, version)
     except Exception as e:
         if "not found" in str(e).lower():
             create_deployment(task_context, version)
@@ -39,7 +40,7 @@ def create_deployment(task_context: TaskContext, version: str) -> None:
     )
 
     try:
-        task_context.client.deployments.create(
+        replicate.deployments.create(
             name=deployment_name,
             model=f"{task_context.model.owner}/{task_context.model.name}",
             version=version,
@@ -52,7 +53,6 @@ def create_deployment(task_context: TaskContext, version: str) -> None:
 
 
 def update_deployment(
-    task_context: TaskContext,
     current_deployment,
     version: str,
 ) -> None:
@@ -66,7 +66,7 @@ def update_deployment(
     )
 
     try:
-        task_context.client.deployments.update(
+        replicate.deployments.update(
             deployment_owner=current_deployment.owner,
             deployment_name=current_deployment.name,
             version=version,
