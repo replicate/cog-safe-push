@@ -323,7 +323,7 @@ def cog_safe_push(
         test_model_schemas = schema.get_schemas(task_context.test_model, train=train)
         model_schemas = schema.get_schemas(task_context.model, train=train)
         try:
-            schema.check_backwards_compatible(test_model_schemas, model_schemas, train)
+            schema.check_backwards_compatible(test_model_schemas, model_schemas, train=train)
         except IncompatibleSchemaError as e:
             if ignore_schema_compatibility:
                 log.warning(f"Ignoring schema compatibility error: {e}")
