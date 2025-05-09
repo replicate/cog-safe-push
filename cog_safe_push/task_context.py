@@ -15,6 +15,9 @@ class TaskContext:
     train_destination: Model | None
     dockerfile: str | None
     fast_push: bool
+    deployment_name: str | None
+    deployment_owner: str | None
+    deployment_hardware: str | None
 
     def is_train(self):
         return self.train_destination is not None
@@ -33,6 +36,9 @@ def make_task_context(
     train_destination_hardware: str = "cpu",
     push_test_model=True,
     fast_push: bool = False,
+    deployment_name: str | None = None,
+    deployment_owner: str | None = None,
+    deployment_hardware: str | None = None,
 ) -> TaskContext:
     if model_owner == test_model_owner and model_name == test_model_name:
         raise ArgumentError("Can't use the same model as test model")
@@ -58,6 +64,9 @@ def make_task_context(
         train_destination=train_destination,
         dockerfile=dockerfile,
         fast_push=fast_push,
+        deployment_name=deployment_name,
+        deployment_owner=deployment_owner,
+        deployment_hardware=deployment_hardware,
     )
 
     if not push_test_model:

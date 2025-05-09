@@ -367,6 +367,28 @@ train:
 # values between < and > should be edited
 ```
 
+## Deployments
+
+The tool can automatically create or update deployments for your model on Replicate. To use this feature:
+
+1. Add deployment settings to your `cog.yaml`:
+
+```yaml
+deployment:
+  name: my-model-deployment
+  owner: your-username  # optional, defaults to model owner
+  hardware: cpu  # or gpu-t4, gpu-a100, etc.
+```
+
+2. When you run `cog-safe-push`, it will:
+   - Create a new deployment if one doesn't exist
+   - Update the existing deployment with the new version if it does exist
+   - Use appropriate instance scaling based on hardware:
+     - CPU: 1-20 instances
+     - GPU: 0-2 instances
+
+The deployment will be created under the specified owner (or model owner if not specified) and will use the hardware configuration you provide.
+
 ## Nota bene
 
 * This is alpha software. If you find a bug, please open an issue!

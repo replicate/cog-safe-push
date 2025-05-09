@@ -10,7 +10,7 @@ import pydantic
 import yaml
 from replicate.exceptions import ReplicateError
 
-from . import cog, lint, log, schema
+from . import cog, deployment, lint, log, schema
 from .config import (
     DEFAULT_PREDICT_TIMEOUT,
     Config,
@@ -201,6 +201,15 @@ def run_config(config: Config, no_push: bool):
     model_owner, model_name = parse_model(config.model)
     test_model_owner, test_model_name = parse_model(config.test_model)
 
+    if config.deployment:
+        deployment_name = config.deployment.name
+        deployment_owner = config.deployment.owner
+        deployment_hardware = config.deployment.hardware
+    else:
+        deployment_name = None
+        deployment_owner = None
+        deployment_hardware = None
+
     # small optimization
     task_context = None
 
@@ -227,6 +236,9 @@ def run_config(config: Config, no_push: bool):
             train_destination_name=destination_name,
             dockerfile=config.dockerfile,
             fast_push=config.fast_push,
+            deployment_name=deployment_name,
+            deployment_owner=deployment_owner,
+            deployment_hardware=deployment_hardware,
         )
 
         cog_safe_push(
@@ -259,6 +271,9 @@ def run_config(config: Config, no_push: bool):
             train=False,
             push_test_model=config.train is None,
             fast_push=config.fast_push,
+            deployment_name=deployment_name,
+            deployment_owner=deployment_owner,
+            deployment_hardware=deployment_hardware,
         )
         cog_safe_push(
             task_context=task_context,
@@ -379,7 +394,10 @@ def cog_safe_push(
 
     if not no_push:
         log.info("Pushing model...")
-        cog.push(task_context.model, task_context.dockerfile, task_context.fast_push)
+        new_version = cog.push(
+            task_context.model, task_context.dockerfile, task_context.fast_push
+        )
+        deployment.handle_deployment(task_context, new_version)
 
 
 async def run_tasks(tasks: list[Task], parallel: int) -> None:
