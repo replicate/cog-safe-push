@@ -1,6 +1,7 @@
 from unittest.mock import MagicMock, patch
 
 import pytest
+from replicate.exceptions import ReplicateError
 
 from cog_safe_push.deployment import (
     create_deployment,
@@ -40,7 +41,9 @@ def test_no_deployment_config(task_context, mock_replicate):
 
 
 def test_create_deployment(task_context, mock_replicate):
-    mock_replicate.get.side_effect = Exception("not found")
+    mock_replicate.get.side_effect = ReplicateError(
+        status=404, detail="No Deployment matches the given query."
+    )
     handle_deployment(task_context, "test-version")
     mock_replicate.create.assert_called_once_with(
         name="test-deployment",
@@ -53,8 +56,12 @@ def test_create_deployment(task_context, mock_replicate):
 
 
 def test_create_deployment_error(task_context, mock_replicate):
-    mock_replicate.get.side_effect = Exception("not found")
-    mock_replicate.create.side_effect = Exception("create failed")
+    mock_replicate.get.side_effect = ReplicateError(
+        status=404, detail="No Deployment matches the given query."
+    )
+    mock_replicate.create.side_effect = ReplicateError(
+        status=500, detail="create failed"
+    )
     with pytest.raises(CogSafePushError, match="Failed to create deployment"):
         handle_deployment(task_context, "test-version")
 
@@ -86,7 +93,9 @@ def test_update_deployment_error(task_context, mock_replicate):
     current_deployment.current_release.configuration.min_instances = 1
     current_deployment.current_release.configuration.max_instances = 20
     mock_replicate.get.return_value = current_deployment
-    mock_replicate.update.side_effect = Exception("update failed")
+    mock_replicate.update.side_effect = ReplicateError(
+        status=500, detail="update failed"
+    )
 
     with pytest.raises(CogSafePushError, match="Failed to update deployment"):
         handle_deployment(task_context, "test-version")
@@ -137,7 +146,9 @@ def test_update_deployment_function_error(mock_replicate):
     current_deployment.current_release.configuration.hardware = "cpu"
     current_deployment.current_release.configuration.min_instances = 1
     current_deployment.current_release.configuration.max_instances = 20
-    mock_replicate.update.side_effect = Exception("update failed")
+    mock_replicate.update.side_effect = ReplicateError(
+        status=500, detail="update failed"
+    )
 
     with pytest.raises(CogSafePushError, match="Failed to update deployment"):
         update_deployment(current_deployment, "test-version")
@@ -150,7 +161,9 @@ def test_create_deployment_no_name(task_context):
 
 
 def test_create_deployment_cpu(task_context, mock_replicate):
-    mock_replicate.get.side_effect = Exception("not found")
+    mock_replicate.get.side_effect = ReplicateError(
+        status=404, detail="No Deployment matches the given query."
+    )
     handle_deployment(task_context, "test-version")
     mock_replicate.create.assert_called_once_with(
         name="test-deployment",
@@ -164,7 +177,9 @@ def test_create_deployment_cpu(task_context, mock_replicate):
 
 def test_create_deployment_gpu(task_context, mock_replicate):
     task_context.deployment_hardware = "gpu-t4"
-    mock_replicate.get.side_effect = Exception("not found")
+    mock_replicate.get.side_effect = ReplicateError(
+        status=404, detail="No Deployment matches the given query."
+    )
     handle_deployment(task_context, "test-version")
     mock_replicate.create.assert_called_once_with(
         name="test-deployment",
@@ -179,7 +194,9 @@ def test_create_deployment_gpu(task_context, mock_replicate):
 def test_handle_deployment_different_owners(task_context, mock_replicate):
     task_context.model.owner = "model-owner"
     task_context.deployment_owner = "deployment-owner"
-    mock_replicate.get.side_effect = Exception("not found")
+    mock_replicate.get.side_effect = ReplicateError(
+        status=404, detail="No Deployment matches the given query."
+    )
     handle_deployment(task_context, "test-version")
     mock_replicate.create.assert_called_once_with(
         name="test-deployment",

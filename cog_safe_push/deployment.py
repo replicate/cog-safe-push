@@ -1,4 +1,5 @@
 import replicate
+from replicate.exceptions import ReplicateError
 
 from . import log
 from .exceptions import CogSafePushError
@@ -18,7 +19,7 @@ def handle_deployment(task_context: TaskContext, version: str) -> None:
             f"{deployment_owner}/{deployment_name}"
         )
         update_deployment(current_deployment, version)
-    except replicate.ReplicateError as e:
+    except ReplicateError as e:
         if e.status == 404:
             create_deployment(task_context, version)
         else:
