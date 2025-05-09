@@ -71,15 +71,6 @@ def test_cog_safe_push():
                     )
                 )
 
-        with fixture_dir("incompatible-schema"):
-            cog_safe_push(
-                make_task_context(
-                    model_owner, model_name, model_owner, test_model_name, "cpu"
-                ),
-                ignore_schema_compatibility=True,
-                do_compare_outputs=False,
-            )
-
         with fixture_dir("outputs-dont-match"):
             with pytest.raises(OutputsDontMatchError):
                 cog_safe_push(
@@ -257,6 +248,42 @@ def test_cog_safe_push_train():
         delete_model(model_owner, model_name)
         delete_model(model_owner, test_model_name)
         delete_model(model_owner, test_model_name + "-dest")
+
+
+def test_cog_safe_push_ignore_incompatible_schema():
+    model_owner = "replicate-internal"
+    model_name = generate_model_name()
+    test_model_name = model_name + "-test"
+    create_model(model_owner, model_name)
+
+    try:
+        # First push with base schema
+        with fixture_dir("base"):
+            cog_safe_push(
+                make_task_context(
+                    model_owner, model_name, model_owner, test_model_name, "cpu"
+                ),
+                test_cases=[
+                    (
+                        {"text": "world"},
+                        ExactStringChecker("hello world"),
+                    ),
+                ],
+            )
+
+        # Then try to push with incompatible schema, but with ignore flag
+        with fixture_dir("incompatible-schema"):
+            cog_safe_push(
+                make_task_context(
+                    model_owner, model_name, model_owner, test_model_name, "cpu"
+                ),
+                ignore_schema_compatibility=True,
+                do_compare_outputs=False,
+            )
+
+    finally:
+        delete_model(model_owner, model_name)
+        delete_model(model_owner, test_model_name)
 
 
 def generate_model_name():
