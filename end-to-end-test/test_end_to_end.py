@@ -302,7 +302,7 @@ def test_cog_safe_push_deployment():
                     test_model_owner=model_owner,
                     test_model_name=test_model_name,
                     test_hardware="cpu",
-                    deployment_name="test-deployment",
+                    deployment_name="cog-safe-push-deployment-test",
                     deployment_owner="replicate-internal",
                     deployment_hardware="cpu",
                 ),
