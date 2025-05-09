@@ -1,5 +1,3 @@
-import requests
-
 from .exceptions import CogSafePushError
 from .task_context import TaskContext
 
@@ -11,32 +9,25 @@ def handle_deployment(task_context: TaskContext, version: str) -> None:
 
     deployment_name = task_context.config.deployment.name
     deployment_owner = task_context.config.deployment.owner or task_context.model.owner
-    deployment_config = task_context.config.deployment
 
-    # Check if deployment exists
-    response = requests.get(
-        f"https://api.replicate.com/v1/deployments/{deployment_owner}/{deployment_name}",
-        headers={"Authorization": f"Bearer {task_context.api_token}"},
-    )
-
-    if response.status_code == 404:
-        create_deployment(
-            task_context, deployment_name, deployment_owner, deployment_config, version
+    try:
+        # Check if deployment exists
+        current_deployment = task_context.client.deployments.get(
+            f"{deployment_owner}/{deployment_name}"
         )
-    else:
-        update_deployment(
-            task_context, deployment_name, deployment_owner, response.json(), version
-        )
+        update_deployment(task_context, current_deployment, version)
+    except Exception as e:
+        if "not found" in str(e).lower():
+            create_deployment(task_context, version)
+        else:
+            raise CogSafePushError(f"Failed to check deployment: {str(e)}")
 
 
-def create_deployment(
-    task_context: TaskContext,
-    deployment_name: str,
-    deployment_owner: str,
-    deployment_config,
-    version: str,
-) -> None:
+def create_deployment(task_context: TaskContext, version: str) -> None:
     """Create a new deployment for the model."""
+    deployment_config = task_context.config.deployment
+    deployment_name = deployment_config.name
+
     hardware = deployment_config.hardware or "cpu"
     if hardware == "cpu":
         min_instances = 1
@@ -49,51 +40,38 @@ def create_deployment(
         f"Creating deployment {deployment_name} with {hardware} hardware, {min_instances} min instances, {max_instances} max instances"
     )
 
-    # Create new deployment
-    response = requests.post(
-        "https://api.replicate.com/v1/deployments",
-        headers={
-            "Authorization": f"Bearer {task_context.api_token}",
-            "Content-Type": "application/json",
-        },
-        json={
-            "name": deployment_name,
-            "owner": deployment_owner,
-            "model": f"{task_context.model.owner}/{task_context.model.name}",
-            "version": version,
-            "hardware": hardware,
-            "min_instances": min_instances,
-            "max_instances": max_instances,
-        },
-    )
-
-    if response.status_code not in (200, 201):
-        raise CogSafePushError(f"Failed to create deployment: {response.text}")
+    try:
+        task_context.client.deployments.create(
+            name=deployment_name,
+            model=f"{task_context.model.owner}/{task_context.model.name}",
+            version=version,
+            hardware=hardware,
+            min_instances=min_instances,
+            max_instances=max_instances,
+        )
+    except Exception as e:
+        raise CogSafePushError(f"Failed to create deployment: {str(e)}")
 
 
 def update_deployment(
     task_context: TaskContext,
-    deployment_name: str,
-    deployment_owner: str,
-    current_deployment: dict,
+    current_deployment,
     version: str,
 ) -> None:
     """Update an existing deployment for the model."""
+    current_config = current_deployment.current_release.configuration
     print(
-        f"Updating deployment {deployment_name} with {current_deployment['hardware']} hardware, {current_deployment['min_instances']} min instances, {current_deployment['max_instances']} max instances"
+        f"Updating deployment {current_deployment.name} with {current_config.hardware} hardware, {current_config.min_instances} min instances, {current_config.max_instances} max instances"
     )
-    print(f"Changing version from {current_deployment['version']} to {version}")
-
-    response = requests.patch(
-        f"https://api.replicate.com/v1/deployments/{deployment_owner}/{deployment_name}",
-        headers={
-            "Authorization": f"Bearer {task_context.api_token}",
-            "Content-Type": "application/json",
-        },
-        json={
-            "version": version,
-        },
+    print(
+        f"Changing version from {current_deployment.current_release.version} to {version}"
     )
 
-    if response.status_code not in (200, 201):
-        raise CogSafePushError(f"Failed to update deployment: {response.text}")
+    try:
+        task_context.client.deployments.update(
+            deployment_owner=current_deployment.owner,
+            deployment_name=current_deployment.name,
+            version=version,
+        )
+    except Exception as e:
+        raise CogSafePushError(f"Failed to update deployment: {str(e)}")
