@@ -18,8 +18,8 @@ def handle_deployment(task_context: TaskContext, version: str) -> None:
             f"{deployment_owner}/{deployment_name}"
         )
         update_deployment(current_deployment, version)
-    except Exception as e:
-        if "not found" in str(e).lower():
+    except replicate.ReplicateError as e:
+        if e.status == 404:
             create_deployment(task_context, version)
         else:
             raise CogSafePushError(f"Failed to check deployment: {str(e)}")
