@@ -71,6 +71,14 @@ def test_cog_safe_push():
                     )
                 )
 
+        with fixture_dir("incompatible-schema"):
+            cog_safe_push(
+                make_task_context(
+                    model_owner, model_name, model_owner, test_model_name, "cpu"
+                ),
+                ignore_schema_compatibility=True,
+            )
+
         with fixture_dir("outputs-dont-match"):
             with pytest.raises(OutputsDontMatchError):
                 cog_safe_push(
