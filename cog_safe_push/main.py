@@ -14,6 +14,7 @@ from . import cog, deployment, lint, log, official_model, schema
 from .config import (
     DEFAULT_PREDICT_TIMEOUT,
     Config,
+    DeploymentConfig,
     FuzzConfig,
     PredictConfig,
     TrainConfig,
@@ -571,7 +572,12 @@ def print_help_config():
                 model="<model>",
                 test_model="<test model, or empty to append '-test' to model>",
                 test_hardware="<hardware, e.g. cpu>",
-                fast_push=False,
+                deployment=DeploymentConfig(
+                    owner="<owner>",
+                    name="<name>",
+                    hardware="<hardware>",
+                ),
+                official_model="<official model, e.g. user/model>",
                 predict=PredictConfig(
                     fuzz=FuzzConfig(),
                     test_cases=test_cases,
@@ -584,6 +590,7 @@ def print_help_config():
                 ),
             ).model_dump(exclude_none=True),
             default_flow_style=False,
+            sort_keys=False,
         ),
     )
     print("# values between < and > should be edited")
