@@ -10,7 +10,7 @@ import pydantic
 import yaml
 from replicate.exceptions import ReplicateError
 
-from . import cog, deployment, lint, log, schema
+from . import cog, deployment, lint, log, official_model, schema
 from .config import (
     DEFAULT_PREDICT_TIMEOUT,
     Config,
@@ -146,6 +146,11 @@ def parse_args_and_config() -> tuple[Config, bool]:
     parser.add_argument(
         "model", help="Model in the format <owner>/<model-name>", nargs="?"
     )
+    parser.add_argument(
+        "--push-official-model",
+        help="Push to the official model defined in the config",
+        action="store_true",
+    )
     args = parser.parse_args()
 
     if args.verbose > 3:
@@ -197,6 +202,15 @@ def parse_args_and_config() -> tuple[Config, bool]:
 
 def run_config(config: Config, no_push: bool):
     assert config.test_model
+
+    if config.push_official_model:
+        if not config.official_model:
+            log.warning(
+                "No official model defined in config. Skipping official model push."
+            )
+            return
+        official_model.push_official_model(config.official_model)
+        return
 
     model_owner, model_name = parse_model(config.model)
     test_model_owner, test_model_name = parse_model(config.test_model)

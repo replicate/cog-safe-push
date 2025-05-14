@@ -1,5 +1,6 @@
 import argparse
 import sys
+from typing import Optional
 
 from pydantic import BaseModel, ConfigDict, model_validator
 
@@ -89,6 +90,7 @@ class Config(BaseModel):
     parallel: int = 4
     fast_push: bool = False
     ignore_schema_compatibility: bool = False
+    official_model: Optional[str] = None
 
     def override(self, field: str, args: argparse.Namespace, arg: str):
         if hasattr(args, arg) and getattr(args, arg) is not None:
