@@ -10,10 +10,11 @@ import pydantic
 import yaml
 from replicate.exceptions import ReplicateError
 
-from . import cog, deployment, lint, log, schema
+from . import cog, deployment, lint, log, official_model, schema
 from .config import (
     DEFAULT_PREDICT_TIMEOUT,
     Config,
+    DeploymentConfig,
     FuzzConfig,
     PredictConfig,
     TrainConfig,
@@ -37,20 +38,21 @@ from .tasks import (
     RunTestCase,
     Task,
 )
+from .utils import parse_model
 
 DEFAULT_CONFIG_PATH = Path("cog-safe-push.yaml")
 
 
 def main():
     try:
-        config, no_push = parse_args_and_config()
-        run_config(config, no_push)
+        config, no_push, push_official_model = parse_args_and_config()
+        run_config(config, no_push, push_official_model)
     except CogSafePushError as e:
         print("💥 " + str(e), file=sys.stderr)
         sys.exit(1)
 
 
-def parse_args_and_config() -> tuple[Config, bool]:
+def parse_args_and_config() -> tuple[Config, bool, bool]:
     parser = argparse.ArgumentParser(description="Safely push a Cog model, with tests")
     parser.add_argument(
         "--config",
@@ -146,6 +148,11 @@ def parse_args_and_config() -> tuple[Config, bool]:
     parser.add_argument(
         "model", help="Model in the format <owner>/<model-name>", nargs="?"
     )
+    parser.add_argument(
+        "--push-official-model",
+        help="Push to the official model defined in the config",
+        action="store_true",
+    )
     args = parser.parse_args()
 
     if args.verbose > 3:
@@ -192,11 +199,22 @@ def parse_args_and_config() -> tuple[Config, bool]:
     if not config.test_model:
         config.test_model = config.model + "-test"
 
-    return config, args.no_push
+    return config, args.no_push, args.push_official_model
 
 
-def run_config(config: Config, no_push: bool):
+def run_config(config: Config, no_push: bool, push_official_model: bool):
     assert config.test_model
+
+    if push_official_model and not no_push:
+        if not config.official_model:
+            log.warning(
+                "No official model defined in config. Skipping official model push."
+            )
+            return
+        official_model.push_official_model(
+            config.official_model, config.dockerfile, config.fast_push
+        )
+        return
 
     model_owner, model_name = parse_model(config.model)
     test_model_owner, test_model_name = parse_model(config.test_model)
@@ -458,15 +476,6 @@ def parse_input_value(value: str) -> Any:
     return value
 
 
-def parse_model(model_owner_name: str) -> tuple[str, str]:
-    pattern = r"^([a-z0-9_-]+)/([a-z0-9-.]+)$"
-    match = re.match(pattern, model_owner_name)
-    if not match:
-        raise ArgumentError(f"Invalid model URL format: {model_owner_name}")
-    owner, name = match.groups()
-    return owner, name
-
-
 def parse_fuzz_fixed_inputs(
     fuzz_fixed_inputs_str: str,
 ) -> dict[str, Any]:
@@ -555,7 +564,12 @@ def print_help_config():
                 model="<model>",
                 test_model="<test model, or empty to append '-test' to model>",
                 test_hardware="<hardware, e.g. cpu>",
-                fast_push=False,
+                deployment=DeploymentConfig(
+                    owner="<owner>",
+                    name="<name>",
+                    hardware="<hardware>",
+                ),
+                official_model="<official model, e.g. user/model>",
                 predict=PredictConfig(
                     fuzz=FuzzConfig(),
                     test_cases=test_cases,
@@ -568,6 +582,7 @@ def print_help_config():
                 ),
             ).model_dump(exclude_none=True),
             default_flow_style=False,
+            sort_keys=False,
         ),
     )
     print("# values between < and > should be edited")

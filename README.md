@@ -264,105 +264,60 @@ You can use a configuration file instead of passing all arguments on the command
 # cog-safe-push --help-config
 
 model: <model>
-parallel: 4
+test_model: <test model, or empty to append '-test' to model>
+test_hardware: <hardware, e.g. cpu>
 predict:
   compare_outputs: true
-  fuzz:
-    disabled_inputs: []
-    fixed_inputs: {}
-    iterations: 10
   predict_timeout: 300
   test_cases:
-  - exact_string: <exact string match>
-    inputs:
+  - inputs:
       <input1>: <value1>
+    exact_string: <exact string match>
   - inputs:
       <input2>: <value2>
     match_url: <match output image against url>
   - inputs:
       <input3>: <value3>
     match_prompt: <match output using AI prompt, e.g. 'an image of a cat'>
-  - error_contains: <assert that these inputs throws an error, and that the error
-      message contains a string>
-    inputs:
+  - inputs:
       <input3>: <value3>
-test_hardware: <hardware, e.g. cpu>
-test_model: <test model, or empty to append '-test' to model>
+    error_contains: <assert that these inputs throws an error, and that the error
+      message contains a string>
+  fuzz:
+    fixed_inputs: {}
+    disabled_inputs: []
+    iterations: 10
 train:
   destination: <generated prediction model, e.g. andreasjansson/test-predict. leave
     blank to append '-dest' to the test model>
   destination_hardware: <hardware for the created prediction model, e.g. cpu>
-  fuzz:
-    disabled_inputs: []
-    fixed_inputs: {}
-    iterations: 10
+  train_timeout: 300
   test_cases:
-  - exact_string: <exact string match>
-    inputs:
+  - inputs:
       <input1>: <value1>
+    exact_string: <exact string match>
   - inputs:
       <input2>: <value2>
     match_url: <match output image against url>
   - inputs:
       <input3>: <value3>
     match_prompt: <match output using AI prompt, e.g. 'an image of a cat'>
-  - error_contains: <assert that these inputs throws an error, and that the error
-      message contains a string>
-    inputs:
+  - inputs:
       <input3>: <value3>
-  train_timeout: 300
-
-# values between < and > should be edited
-
-
-model: <model>
+    error_contains: <assert that these inputs throws an error, and that the error
+      message contains a string>
+  fuzz:
+    fixed_inputs: {}
+    disabled_inputs: []
+    iterations: 10
+deployment:
+  owner: <owner>
+  name: <name>
+  hardware: <hardware>
 parallel: 4
-predict:
-  compare_outputs: true
-  fuzz:
-    disabled_inputs: []
-    fixed_inputs: {}
-    iterations: 10
-  predict_timeout: 300
-  test_cases:
-  - exact_string: <exact string match>
-    inputs:
-      <input1>: <value1>
-  - inputs:
-      <input2>: <value2>
-    match_url: <match output image against url>
-  - inputs:
-      <input3>: <value3>
-    match_prompt: <match output using AI prompt, e.g. 'an image of a cat'>
-  - error_contains: <assert that these inputs throws an error, and that the error
-      message contains a string>
-    inputs:
-      <input3>: <value3>
-test_hardware: <hardware, e.g. cpu>
-test_model: <test model, or empty to append '-test' to model>
-train:
-  destination: <generated prediction model, e.g. andreasjansson/test-predict. leave
-    blank to append '-dest' to the test model>
-  destination_hardware: <hardware for the created prediction model, e.g. cpu>
-  fuzz:
-    disabled_inputs: []
-    fixed_inputs: {}
-    iterations: 10
-  test_cases:
-  - exact_string: <exact string match>
-    inputs:
-      <input1>: <value1>
-  - inputs:
-      <input2>: <value2>
-    match_url: <match output image against url>
-  - inputs:
-      <input3>: <value3>
-    match_prompt: <match output using AI prompt, e.g. 'an image of a cat'>
-  - error_contains: <assert that these inputs throws an error, and that the error
-      message contains a string>
-    inputs:
-      <input3>: <value3>
-  train_timeout: 300
+fast_push: false
+ignore_schema_compatibility: false
+official_model: <official model, e.g. user/model>
 
 # values between < and > should be edited
 ```
