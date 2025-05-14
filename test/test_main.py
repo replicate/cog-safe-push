@@ -12,27 +12,30 @@ from cog_safe_push.main import (
 
 def test_parse_args_minimal(monkeypatch):
     monkeypatch.setattr("sys.argv", ["cog-safe-push", "user/model"])
-    config, no_push = parse_args_and_config()
+    config, no_push, push_official_model = parse_args_and_config()
     assert config.model == "user/model"
     assert config.test_model == "user/model-test"
     assert not no_push
+    assert not push_official_model
 
 
 def test_parse_args_with_test_model(monkeypatch):
     monkeypatch.setattr(
         "sys.argv", ["cog-safe-push", "user/model", "--test-model", "user/test-model"]
     )
-    config, no_push = parse_args_and_config()
+    config, no_push, push_official_model = parse_args_and_config()
     assert config.model == "user/model"
     assert config.test_model == "user/test-model"
     assert not no_push
+    assert not push_official_model
 
 
 def test_parse_args_no_push(monkeypatch):
     monkeypatch.setattr("sys.argv", ["cog-safe-push", "user/model", "--no-push"])
-    config, no_push = parse_args_and_config()
+    config, no_push, push_official_model = parse_args_and_config()
     assert config.model == "user/model"
     assert no_push
+    assert not push_official_model
 
 
 def test_parse_args_verbose(monkeypatch):
@@ -51,7 +54,7 @@ def test_parse_args_predict_timeout(monkeypatch):
     monkeypatch.setattr(
         "sys.argv", ["cog-safe-push", "user/model", "--predict-timeout", "600"]
     )
-    config, _ = parse_args_and_config()
+    config, _, _ = parse_args_and_config()
     assert config.predict is not None
     assert config.predict.predict_timeout == 600
 
@@ -70,7 +73,7 @@ def test_parse_args_fuzz_options(monkeypatch):
             "5",
         ],
     )
-    config, _ = parse_args_and_config()
+    config, _, _ = parse_args_and_config()
     assert config.predict is not None
     assert config.predict.fuzz is not None
     assert config.predict.fuzz.fixed_inputs == {"key1": "value1", "key2": 42}
@@ -88,7 +91,7 @@ def test_parse_args_test_case(monkeypatch):
             "input1=value1;input2=42==expected output",
         ],
     )
-    config, _ = parse_args_and_config()
+    config, _, _ = parse_args_and_config()
     assert config.predict is not None
     assert len(config.predict.test_cases) == 1
     assert config.predict.test_cases[0].inputs == {"input1": "value1", "input2": 42}
@@ -107,7 +110,7 @@ def test_parse_args_multiple_test_cases(monkeypatch):
             "input2=value2~=AI prompt",
         ],
     )
-    config, _ = parse_args_and_config()
+    config, _, _ = parse_args_and_config()
     assert config.predict is not None
     assert len(config.predict.test_cases) == 2
     assert config.predict.test_cases[0].inputs == {"input1": "value1"}
@@ -146,7 +149,7 @@ def test_parse_config_file(tmp_path, monkeypatch):
     config_file.write_text(config_yaml)
     monkeypatch.setattr("sys.argv", ["cog-safe-push", "--config", str(config_file)])
 
-    config, _ = parse_args_and_config()
+    config, _, _ = parse_args_and_config()
 
     assert config.model == "user/model"
     assert config.test_model == "user/test-model"
@@ -186,7 +189,7 @@ def test_config_override_with_args(tmp_path, monkeypatch):
         ],
     )
 
-    config, _ = parse_args_and_config()
+    config, _, _ = parse_args_and_config()
 
     assert config.model == "user/model"
     assert config.test_model == "user/override-test-model"
@@ -227,7 +230,7 @@ def test_parse_args_no_compare_outputs(monkeypatch):
     monkeypatch.setattr(
         "sys.argv", ["cog-safe-push", "user/model", "--no-compare-outputs"]
     )
-    config, _ = parse_args_and_config()
+    config, _, _ = parse_args_and_config()
     assert config.predict is not None
     assert not config.predict.compare_outputs
 
@@ -236,7 +239,7 @@ def test_parse_args_fuzz_iterations(monkeypatch):
     monkeypatch.setattr(
         "sys.argv", ["cog-safe-push", "user/model", "--fuzz-iterations", "50"]
     )
-    config, _ = parse_args_and_config()
+    config, _, _ = parse_args_and_config()
     assert config.predict is not None
     assert config.predict.fuzz is not None
     assert config.predict.fuzz.iterations == 50
@@ -246,7 +249,7 @@ def test_parse_args_test_hardware(monkeypatch):
     monkeypatch.setattr(
         "sys.argv", ["cog-safe-push", "user/model", "--test-hardware", "gpu"]
     )
-    config, _ = parse_args_and_config()
+    config, _, _ = parse_args_and_config()
     assert config.test_hardware == "gpu"
 
 
@@ -269,7 +272,7 @@ def test_parse_config_with_train(tmp_path, monkeypatch):
     config_file.write_text(config_yaml)
     monkeypatch.setattr("sys.argv", ["cog-safe-push", "--config", str(config_file)])
 
-    config, _ = parse_args_and_config()
+    config, _, _ = parse_args_and_config()
 
     assert config.model == "user/model"
     assert config.test_model == "user/test-model"
@@ -294,7 +297,7 @@ def test_parse_args_with_default_config(tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
     monkeypatch.setattr("sys.argv", ["cog-safe-push"])
 
-    config, _ = parse_args_and_config()
+    config, _, _ = parse_args_and_config()
 
     assert config.model == "user/default-model"
     assert config.test_model == "user/default-test-model"
@@ -310,7 +313,7 @@ def test_parse_args_override_default_config(tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
     monkeypatch.setattr("sys.argv", ["cog-safe-push", "user/override-model"])
 
-    config, _ = parse_args_and_config()
+    config, _, _ = parse_args_and_config()
 
     assert config.model == "user/override-model"
     assert config.test_model == "user/default-test-model"
@@ -387,7 +390,7 @@ def test_parse_args_ignore_schema_compatibility(monkeypatch):
     monkeypatch.setattr(
         "sys.argv", ["cog-safe-push", "user/model", "--ignore-schema-compatibility"]
     )
-    config, _ = parse_args_and_config()
+    config, _, _ = parse_args_and_config()
     assert config.ignore_schema_compatibility is True
 
 
@@ -433,3 +436,13 @@ def test_parse_inputs():
 
     with pytest.raises(ArgumentError):
         parse_inputs(["invalid_format"])
+
+
+def test_parse_args_push_official_model(monkeypatch):
+    monkeypatch.setattr(
+        "sys.argv", ["cog-safe-push", "user/model", "--push-official-model"]
+    )
+    config, no_push, push_official_model = parse_args_and_config()
+    assert config.model == "user/model"
+    assert not no_push
+    assert push_official_model

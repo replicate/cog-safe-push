@@ -43,14 +43,14 @@ DEFAULT_CONFIG_PATH = Path("cog-safe-push.yaml")
 
 def main():
     try:
-        config, no_push = parse_args_and_config()
-        run_config(config, no_push)
+        config, no_push, push_official_model = parse_args_and_config()
+        run_config(config, no_push, push_official_model)
     except CogSafePushError as e:
         print("💥 " + str(e), file=sys.stderr)
         sys.exit(1)
 
 
-def parse_args_and_config() -> tuple[Config, bool]:
+def parse_args_and_config() -> tuple[Config, bool, bool]:
     parser = argparse.ArgumentParser(description="Safely push a Cog model, with tests")
     parser.add_argument(
         "--config",
@@ -197,19 +197,21 @@ def parse_args_and_config() -> tuple[Config, bool]:
     if not config.test_model:
         config.test_model = config.model + "-test"
 
-    return config, args.no_push
+    return config, args.no_push, args.push_official_model
 
 
-def run_config(config: Config, no_push: bool):
+def run_config(config: Config, no_push: bool, push_official_model: bool):
     assert config.test_model
 
-    if config.push_official_model:
+    if push_official_model and not no_push:
         if not config.official_model:
             log.warning(
                 "No official model defined in config. Skipping official model push."
             )
             return
-        official_model.push_official_model(config.official_model)
+        official_model.push_official_model(
+            config.official_model, config.dockerfile, config.fast_push
+        )
         return
 
     model_owner, model_name = parse_model(config.model)
