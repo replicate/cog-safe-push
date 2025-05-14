@@ -341,6 +341,12 @@ def test_cog_safe_push_create_official_model():
             )
             run_config(config, no_push=False, push_official_model=True)
 
+            # Verify the official model was created and has a version
+            official_model = replicate.models.get(
+                f"{model_owner}/{official_model_name}"
+            )
+            assert official_model.latest_version is not None
+
     finally:
         delete_model(model_owner, official_model_name)
 
@@ -360,7 +366,23 @@ def test_cog_safe_push_push_official_model():
                 official_model=f"{model_owner}/{official_model_name}",
                 test_hardware="cpu",
             )
+
+            official_model = replicate.models.get(
+                f"{model_owner}/{official_model_name}"
+            )
+            initial_version_id = (
+                official_model.latest_version.id
+                if official_model.latest_version
+                else None
+            )
+
             run_config(config, no_push=False, push_official_model=True)
+
+            official_model = replicate.models.get(
+                f"{model_owner}/{official_model_name}"
+            )
+            assert official_model.latest_version is not None
+            assert official_model.latest_version.id != initial_version_id
 
     finally:
         delete_model(model_owner, official_model_name)
