@@ -10,8 +10,9 @@ import replicate
 from replicate.exceptions import ReplicateException
 
 from cog_safe_push import log
+from cog_safe_push.config import Config
 from cog_safe_push.exceptions import *
-from cog_safe_push.main import cog_safe_push
+from cog_safe_push.main import cog_safe_push, run_config
 from cog_safe_push.output_checkers import (
     AIChecker,
     ErrorContainsChecker,
@@ -322,6 +323,47 @@ def test_cog_safe_push_deployment():
         # Models associated with a deployment are not deleted by default
         # We only delete the test model
         delete_model(model_owner, test_model_name)
+
+
+def test_cog_safe_push_create_official_model():
+    model_owner = "replicate-internal"
+    model_name = generate_model_name()
+    test_model_name = model_name + "-test"
+    official_model_name = model_name + "-official"
+
+    try:
+        with fixture_dir("image-base"):
+            config = Config(
+                model=f"{model_owner}/{model_name}",
+                test_model=f"{model_owner}/{test_model_name}",
+                official_model=f"{model_owner}/{official_model_name}",
+                test_hardware="cpu",
+            )
+            run_config(config, no_push=False, push_official_model=True)
+
+    finally:
+        delete_model(model_owner, official_model_name)
+
+
+def test_cog_safe_push_push_official_model():
+    model_owner = "replicate-internal"
+    model_name = generate_model_name()
+    test_model_name = model_name + "-test"
+    official_model_name = model_name + "-official"
+    create_model(model_owner, official_model_name)
+
+    try:
+        with fixture_dir("image-base"):
+            config = Config(
+                model=f"{model_owner}/{model_name}",
+                test_model=f"{model_owner}/{test_model_name}",
+                official_model=f"{model_owner}/{official_model_name}",
+                test_hardware="cpu",
+            )
+            run_config(config, no_push=False, push_official_model=True)
+
+    finally:
+        delete_model(model_owner, official_model_name)
 
 
 def generate_model_name():
