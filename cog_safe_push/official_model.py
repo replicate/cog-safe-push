@@ -1,7 +1,7 @@
 from . import cog
 from .log import info
-from .main import parse_model
 from .task_context import get_or_create_model
+from .utils import parse_model
 
 
 def push_official_model(

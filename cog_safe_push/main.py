@@ -38,6 +38,7 @@ from .tasks import (
     RunTestCase,
     Task,
 )
+from .utils import parse_model
 
 DEFAULT_CONFIG_PATH = Path("cog-safe-push.yaml")
 
@@ -473,15 +474,6 @@ def parse_input_value(value: str) -> Any:
 
     # string
     return value
-
-
-def parse_model(model_owner_name: str) -> tuple[str, str]:
-    pattern = r"^([a-z0-9_-]+)/([a-z0-9-.]+)$"
-    match = re.match(pattern, model_owner_name)
-    if not match:
-        raise ArgumentError(f"Invalid model URL format: {model_owner_name}")
-    owner, name = match.groups()
-    return owner, name
 
 
 def parse_fuzz_fixed_inputs(
