@@ -76,7 +76,9 @@ def make_task_context(
         return context
 
     log.info("Pushing test model")
-    pushed_version_id = cog.push(test_model, dockerfile, fast_push)
+    pushed_version_id = cog.push(
+        test_model.owner, test_model.name, dockerfile, fast_push
+    )
     test_model.reload()
     try:
         assert test_model.versions.list()[0].id.strip() == pushed_version_id.strip(), (

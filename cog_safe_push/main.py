@@ -413,7 +413,10 @@ def cog_safe_push(
     if not no_push:
         log.info("Pushing model...")
         new_version = cog.push(
-            task_context.model, task_context.dockerfile, task_context.fast_push
+            task_context.model.owner,
+            task_context.model.name,
+            task_context.dockerfile,
+            task_context.fast_push,
         )
         deployment.handle_deployment(task_context, new_version)
 

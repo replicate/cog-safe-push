@@ -1,13 +1,13 @@
 import re
 import subprocess
 
-from replicate.model import Model
-
 from . import log
 
 
-def push(model: Model, dockerfile: str | None, fast_push: bool = False) -> str:
-    url = f"r8.im/{model.owner}/{model.name}"
+def push(
+    model_owner: str, model_name: str, dockerfile: str | None, fast_push: bool = False
+) -> str:
+    url = f"r8.im/{model_owner}/{model_name}"
     log.info(f"Pushing to {url}")
     cmd = ["cog", "push", url]
     if dockerfile:
