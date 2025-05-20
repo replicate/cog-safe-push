@@ -60,7 +60,10 @@ Description to evaluate: {prompt}"""
             if sum(multiple_matches) >= 2:
                 return True, ""
 
-    return False, f"AI determined that the output does not match the description: {prompt}"
+    return (
+        False,
+        f"AI determined that the output does not match the description: {prompt}",
+    )
 
 
 async def outputs_match(
