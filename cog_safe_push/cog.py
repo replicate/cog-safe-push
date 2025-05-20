@@ -5,7 +5,11 @@ from . import log
 
 
 def push(
-    model_owner: str, model_name: str, dockerfile: str | None, fast_push: bool = False
+    model_owner: str,
+    model_name: str,
+    dockerfile: str | None,
+    fast_push: bool = False,
+    use_cog_base_image: bool = True,
 ) -> str:
     url = f"r8.im/{model_owner}/{model_name}"
     log.info(f"Pushing to {url}")
@@ -14,6 +18,8 @@ def push(
         cmd += ["--dockerfile", dockerfile]
     if fast_push:
         cmd += ["--x-fast"]
+    if not use_cog_base_image:
+        cmd += ["--use-cog-base-image=false"]
     process = subprocess.Popen(
         cmd,
         stdout=subprocess.PIPE,

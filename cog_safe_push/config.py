@@ -89,6 +89,7 @@ class Config(BaseModel):
     dockerfile: str | None = None
     parallel: int = 4
     fast_push: bool = False
+    use_cog_base_image: bool = True
     ignore_schema_compatibility: bool = False
     official_model: Optional[str] = None
 
