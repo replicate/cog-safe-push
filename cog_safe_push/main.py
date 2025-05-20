@@ -212,7 +212,10 @@ def run_config(config: Config, no_push: bool, push_official_model: bool):
             )
             return
         official_model.push_official_model(
-            config.official_model, config.dockerfile, config.fast_push
+            config.official_model,
+            config.dockerfile,
+            config.fast_push,
+            config.use_cog_base_image,
         )
         return
 
@@ -254,6 +257,7 @@ def run_config(config: Config, no_push: bool, push_official_model: bool):
             train_destination_name=destination_name,
             dockerfile=config.dockerfile,
             fast_push=config.fast_push,
+            use_cog_base_image=config.use_cog_base_image,
             deployment_name=deployment_name,
             deployment_owner=deployment_owner,
             deployment_hardware=deployment_hardware,
@@ -289,6 +293,7 @@ def run_config(config: Config, no_push: bool, push_official_model: bool):
             train=False,
             push_test_model=config.train is None,
             fast_push=config.fast_push,
+            use_cog_base_image=config.use_cog_base_image,
             deployment_name=deployment_name,
             deployment_owner=deployment_owner,
             deployment_hardware=deployment_hardware,
@@ -413,10 +418,11 @@ def cog_safe_push(
     if not no_push:
         log.info("Pushing model...")
         new_version = cog.push(
-            task_context.model.owner,
-            task_context.model.name,
-            task_context.dockerfile,
-            task_context.fast_push,
+            model_owner=task_context.model.owner,
+            model_name=task_context.model.name,
+            dockerfile=task_context.dockerfile,
+            fast_push=task_context.fast_push,
+            use_cog_base_image=task_context.use_cog_base_image,
         )
         deployment.handle_deployment(task_context, new_version)
 

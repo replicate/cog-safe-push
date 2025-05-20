@@ -15,6 +15,7 @@ class TaskContext:
     train_destination: Model | None
     dockerfile: str | None
     fast_push: bool
+    use_cog_base_image: bool
     deployment_name: str | None
     deployment_owner: str | None
     deployment_hardware: str | None
@@ -36,6 +37,7 @@ def make_task_context(
     train_destination_hardware: str = "cpu",
     push_test_model=True,
     fast_push: bool = False,
+    use_cog_base_image: bool = True,
     deployment_name: str | None = None,
     deployment_owner: str | None = None,
     deployment_hardware: str | None = None,
@@ -64,6 +66,7 @@ def make_task_context(
         train_destination=train_destination,
         dockerfile=dockerfile,
         fast_push=fast_push,
+        use_cog_base_image=use_cog_base_image,
         deployment_name=deployment_name,
         deployment_owner=deployment_owner,
         deployment_hardware=deployment_hardware,
@@ -77,7 +80,11 @@ def make_task_context(
 
     log.info("Pushing test model")
     pushed_version_id = cog.push(
-        test_model.owner, test_model.name, dockerfile, fast_push
+        model_owner=test_model.owner,
+        model_name=test_model.name,
+        dockerfile=dockerfile,
+        fast_push=fast_push,
+        use_cog_base_image=use_cog_base_image,
     )
     test_model.reload()
     try:
