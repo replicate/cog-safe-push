@@ -127,6 +127,12 @@ def parse_args_and_config() -> tuple[Config, bool, bool]:
         default=argparse.SUPPRESS,
     )
     parser.add_argument(
+        "--fuzz-prompt",
+        help="Additional prompting for the fuzz input generation",
+        type=str,
+        default=argparse.SUPPRESS,
+    )
+    parser.add_argument(
         "--parallel",
         help="Number of parallel prediction threads.",
         type=int,
@@ -194,6 +200,7 @@ def parse_args_and_config() -> tuple[Config, bool, bool]:
     config.predict_fuzz_override("fixed_inputs", args, "fuzz_fixed_inputs")
     config.predict_fuzz_override("disabled_inputs", args, "fuzz_disabled_inputs")
     config.predict_fuzz_override("iterations", args, "fuzz_iterations")
+    config.predict_fuzz_override("prompt", args, "fuzz_prompt")
     config.override("ignore_schema_compatibility", args, "ignore_schema_compatibility")
 
     if not config.test_model:
@@ -273,6 +280,7 @@ def run_config(config: Config, no_push: bool, push_official_model: bool):
             fuzz_fixed_inputs=fuzz.fixed_inputs,
             fuzz_disabled_inputs=fuzz.disabled_inputs,
             fuzz_iterations=fuzz.iterations,
+            fuzz_prompt=fuzz.prompt,
             parallel=config.parallel,
             ignore_schema_compatibility=config.ignore_schema_compatibility,
         )
@@ -308,6 +316,7 @@ def run_config(config: Config, no_push: bool, push_official_model: bool):
             fuzz_fixed_inputs=fuzz.fixed_inputs,
             fuzz_disabled_inputs=fuzz.disabled_inputs,
             fuzz_iterations=fuzz.iterations,
+            fuzz_prompt=fuzz.prompt,
             parallel=config.parallel,
             ignore_schema_compatibility=config.ignore_schema_compatibility,
         )
@@ -323,6 +332,7 @@ def cog_safe_push(
     fuzz_fixed_inputs: dict = {},
     fuzz_disabled_inputs: list = [],
     fuzz_iterations: int = 10,
+    fuzz_prompt: str | None = None,
     parallel=4,
     ignore_schema_compatibility: bool = False,
 ):
@@ -400,6 +410,7 @@ def cog_safe_push(
                 num_inputs=fuzz_iterations,
                 fixed_inputs=fuzz_fixed_inputs,
                 disabled_inputs=fuzz_disabled_inputs,
+                fuzz_prompt=fuzz_prompt,
             )
         )
         for _ in range(fuzz_iterations):
@@ -580,7 +591,7 @@ def print_help_config():
                 ),
                 official_model="<official model, e.g. user/model>",
                 predict=PredictConfig(
-                    fuzz=FuzzConfig(),
+                    fuzz=FuzzConfig(prompt=""),
                     test_cases=test_cases,
                 ),
                 train=TrainConfig(

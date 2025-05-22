@@ -109,6 +109,7 @@ class MakeFuzzInputs(Task):
     inputs_queue: Queue[dict[str, Any]]
     fixed_inputs: dict
     disabled_inputs: list[str]
+    fuzz_prompt: str | None
 
     async def run(self) -> None:
         schemas = schema.get_schemas(
@@ -123,6 +124,7 @@ class MakeFuzzInputs(Task):
                 seed=None,
                 fixed_inputs=self.fixed_inputs,
                 disabled_inputs=self.disabled_inputs,
+                fuzz_prompt=self.fuzz_prompt,
                 inputs_history=inputs_history,
             )
             await self.inputs_queue.put(inputs)

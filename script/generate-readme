@@ -22,7 +22,7 @@ def update_readme():
             return f"""<!-- generate: {cmd} -->
 
 ```{lang}
-# {cmd}\n\n{output}
+# {cmd}
 
 {output}```"""
         except subprocess.CalledProcessError as e:

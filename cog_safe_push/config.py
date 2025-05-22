@@ -41,6 +41,7 @@ class FuzzConfig(BaseModel):
     disabled_inputs: list[str] = []
     iterations: int = 10
     duration: int | None = None
+    prompt: str | None = None
 
     @model_validator(mode="after")
     def warn_duration_deprecated(self):

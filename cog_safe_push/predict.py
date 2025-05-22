@@ -23,6 +23,7 @@ async def make_predict_inputs(
     seed: int | None,
     fixed_inputs: dict[str, Any],
     disabled_inputs: list[str],
+    fuzz_prompt: str | None,
     inputs_history: list[dict] | None = None,
     attempt=0,
 ) -> tuple[dict, bool]:
@@ -184,6 +185,13 @@ If the schema has default values for some of the inputs, feel free to either use
 Return a new combination of inputs that you haven't used before, ideally that's quite diverse from inputs you've used before. You have previously used these inputs:
 {inputs_history_str}"""
 
+    if fuzz_prompt:
+        prompt += f"""
+
+# Additional instructions
+
+You must follow these instructions: {fuzz_prompt}"""
+
     inputs = await ai.json_object(prompt)
     if set(required) - set(inputs.keys()):
         max_attempts = 5
@@ -198,6 +206,7 @@ Return a new combination of inputs that you haven't used before, ideally that's 
             seed=seed,
             fixed_inputs=fixed_inputs,
             disabled_inputs=disabled_inputs,
+            fuzz_prompt=fuzz_prompt,
             attempt=attempt + 1,
         )
 
