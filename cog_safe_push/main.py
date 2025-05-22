@@ -387,6 +387,7 @@ def cog_safe_push(
                     first_test_case_inputs=test_cases[0][0] if test_cases else None,
                     fuzz_fixed_inputs=fuzz_fixed_inputs,
                     fuzz_disabled_inputs=fuzz_disabled_inputs,
+                    fuzz_prompt=fuzz_prompt,
                 )
             )
 

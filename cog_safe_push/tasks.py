@@ -26,6 +26,7 @@ class CheckOutputsMatch(Task):
     first_test_case_inputs: dict[str, Any] | None
     fuzz_fixed_inputs: dict[str, Any]
     fuzz_disabled_inputs: list[str]
+    fuzz_prompt: str | None
 
     async def run(self) -> None:
         if self.first_test_case_inputs is not None:
@@ -46,6 +47,7 @@ class CheckOutputsMatch(Task):
                 seed=1,
                 fixed_inputs=self.fuzz_fixed_inputs,
                 disabled_inputs=self.fuzz_disabled_inputs,
+                fuzz_prompt=self.fuzz_prompt,
             )
 
         log.v(

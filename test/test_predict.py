@@ -41,6 +41,7 @@ async def test_make_predict_inputs_basic(mock_json_object, sample_schemas):
         seed=None,
         fixed_inputs={},
         disabled_inputs=[],
+        fuzz_prompt=None,
     )
 
     assert inputs == {"text": "hello", "number": 42, "choice": "A"}
@@ -58,6 +59,7 @@ async def test_make_predict_inputs_with_seed(sample_schemas):
             seed=123,
             fixed_inputs={},
             disabled_inputs=[],
+            fuzz_prompt=None,
         )
 
         assert inputs == {"text": "hello", "number": 42, "choice": "A", "seed": 123}
@@ -75,6 +77,7 @@ async def test_make_predict_inputs_with_fixed_inputs(sample_schemas):
             seed=None,
             fixed_inputs={"text": "fixed"},
             disabled_inputs=[],
+            fuzz_prompt=None,
         )
 
         assert inputs["text"] == "fixed"
@@ -96,6 +99,7 @@ async def test_make_predict_inputs_with_disabled_inputs(sample_schemas):
             seed=None,
             fixed_inputs={},
             disabled_inputs=["optional"],
+            fuzz_prompt=None,
         )
 
         assert "optional" not in inputs
@@ -117,6 +121,7 @@ async def test_make_predict_inputs_with_inputs_history(sample_schemas):
             seed=None,
             fixed_inputs={},
             disabled_inputs=[],
+            fuzz_prompt=None,
             inputs_history=inputs_history,
         )
 
@@ -138,6 +143,7 @@ async def test_make_predict_inputs_ai_error(sample_schemas):
             seed=None,
             fixed_inputs={},
             disabled_inputs=[],
+            fuzz_prompt=None,
         )
 
         assert inputs == {"text": "hello", "number": 42, "choice": "A"}
@@ -158,4 +164,5 @@ async def test_make_predict_inputs_max_attempts_reached(sample_schemas):
                 seed=None,
                 fixed_inputs={},
                 disabled_inputs=[],
+                fuzz_prompt=None,
             )
