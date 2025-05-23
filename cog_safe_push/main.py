@@ -592,13 +592,13 @@ def print_help_config():
                 ),
                 official_model="<official model, e.g. user/model>",
                 predict=PredictConfig(
-                    fuzz=FuzzConfig(prompt=""),
+                    fuzz=FuzzConfig(prompt="<additional prompt for the language model when selecting fuzz inputs>"),
                     test_cases=test_cases,
                 ),
                 train=TrainConfig(
                     destination="<generated prediction model, e.g. andreasjansson/test-predict. leave blank to append '-dest' to the test model>",
                     destination_hardware="<hardware for the created prediction model, e.g. cpu>",
-                    fuzz=FuzzConfig(),
+                    fuzz=FuzzConfig(prompt="<additional prompt for the language model when selecting fuzz inputs>"),
                     test_cases=test_cases,
                 ),
             ).model_dump(exclude_none=True),

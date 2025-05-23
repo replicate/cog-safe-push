@@ -96,16 +96,14 @@ After pushing this workflow to the main branch, you can run it manually from the
 ```text
 # cog-safe-push --help
 
-usage: cog-safe-push [-h] [--config CONFIG] [--help-config]
-                     [--test-model TEST_MODEL] [--no-push]
-                     [--test-hardware TEST_HARDWARE] [--no-compare-outputs]
+usage: cog-safe-push [-h] [--config CONFIG] [--help-config] [--test-model TEST_MODEL]
+                     [--no-push] [--test-hardware TEST_HARDWARE] [--no-compare-outputs]
                      [--predict-timeout PREDICT_TIMEOUT] [--fast-push]
-                     [--test-case TEST_CASES]
-                     [--fuzz-fixed-inputs FUZZ_FIXED_INPUTS]
+                     [--test-case TEST_CASES] [--fuzz-fixed-inputs FUZZ_FIXED_INPUTS]
                      [--fuzz-disabled-inputs FUZZ_DISABLED_INPUTS]
-                     [--fuzz-iterations FUZZ_ITERATIONS]
-                     [--fuzz-prompt FUZZ_PROMPT] [--parallel PARALLEL]
-                     [--ignore-schema-compatibility] [-v] [--push-official-model]
+                     [--fuzz-iterations FUZZ_ITERATIONS] [--fuzz-prompt FUZZ_PROMPT]
+                     [--parallel PARALLEL] [--ignore-schema-compatibility] [-v]
+                     [--push-official-model]
                      [model]
 
 Safely push a Cog model, with tests
@@ -115,52 +113,46 @@ positional arguments:
 
 options:
   -h, --help            show this help message and exit
-  --config CONFIG       Path to the YAML config file. If --config is not passed,
-                        ./cog-safe-push.yaml will be used, if it exists. Any
-                        arguments you pass in will override fields on the predict
-                        configuration stanza.
+  --config CONFIG       Path to the YAML config file. If --config is not passed, ./cog-
+                        safe-push.yaml will be used, if it exists. Any arguments you pass
+                        in will override fields on the predict configuration stanza.
   --help-config         Print a default cog-safe-push.yaml config to stdout.
   --test-model TEST_MODEL
-                        Replicate model to test on, in the format
-                        <username>/<model-name>. If omitted, <model>-test will be
-                        used. The test model is created automatically if it
-                        doesn't exist already
+                        Replicate model to test on, in the format <username>/<model-name>.
+                        If omitted, <model>-test will be used. The test model is created
+                        automatically if it doesn't exist already
   --no-push             Only test the model, don't push it to <model>
   --test-hardware TEST_HARDWARE
-                        Hardware to run the test model on. Only used when
-                        creating the test model, if it doesn't already exist.
-  --no-compare-outputs  Don't make predictions to compare that prediction outputs
-                        match the current version
+                        Hardware to run the test model on. Only used when creating the
+                        test model, if it doesn't already exist.
+  --no-compare-outputs  Don't make predictions to compare that prediction outputs match
+                        the current version
   --predict-timeout PREDICT_TIMEOUT
                         Timeout (in seconds) for predictions. Default: 300
   --fast-push           Use the --x-fast flag when doing cog push
   --test-case TEST_CASES
-                        Inputs and expected output that will be used for testing,
-                        you can provide multiple --test-case options for multiple
-                        test cases. The first test case will be used when
-                        comparing outputs to the current version. Each --test-
-                        case is semicolon-separated key-value pairs in the format
-                        '<key1>=<value1>;<key2=value2>[<output-checker>]'.
-                        <output-checker> can either be '==<exact-string-or-url>'
-                        or '~=<ai-prompt>'. If you use '==<exact-string-or-url>'
-                        then the output of the model must match exactly the
-                        string or url you specify. If you use '~=<ai-prompt>'
-                        then the AI will verify your output based on <ai-prompt>.
-                        If you omit <output-checker>, it will just verify that
-                        the prediction doesn't throw an error.
+                        Inputs and expected output that will be used for testing, you can
+                        provide multiple --test-case options for multiple test cases. The
+                        first test case will be used when comparing outputs to the current
+                        version. Each --test-case is semicolon-separated key-value pairs
+                        in the format '<key1>=<value1>;<key2=value2>[<output-checker>]'.
+                        <output-checker> can either be '==<exact-string-or-url>' or
+                        '~=<ai-prompt>'. If you use '==<exact-string-or-url>' then the
+                        output of the model must match exactly the string or url you
+                        specify. If you use '~=<ai-prompt>' then the AI will verify your
+                        output based on <ai-prompt>. If you omit <output-checker>, it will
+                        just verify that the prediction doesn't throw an error.
   --fuzz-fixed-inputs FUZZ_FIXED_INPUTS
-                        Inputs that should have fixed values during fuzzing. All
-                        other non-disabled input values will be generated by AI.
-                        If no test cases are specified, these will also be used
-                        when comparing outputs to the current version. Semicolon-
-                        separated key-value pairs in the format
-                        '<key1>=<value1>;<key2=value2>' (etc.)
+                        Inputs that should have fixed values during fuzzing. All other
+                        non-disabled input values will be generated by AI. If no test
+                        cases are specified, these will also be used when comparing
+                        outputs to the current version. Semicolon-separated key-value
+                        pairs in the format '<key1>=<value1>;<key2=value2>' (etc.)
   --fuzz-disabled-inputs FUZZ_DISABLED_INPUTS
-                        Don't pass values for these inputs during fuzzing.
-                        Semicolon-separated keys in the format '<key1>;<key2>'
-                        (etc.). If no test cases are specified, these will also
-                        be disabled when comparing outputs to the current
-                        version.
+                        Don't pass values for these inputs during fuzzing. Semicolon-
+                        separated keys in the format '<key1>;<key2>' (etc.). If no test
+                        cases are specified, these will also be disabled when comparing
+                        outputs to the current version.
   --fuzz-iterations FUZZ_ITERATIONS
                         Maximum number of iterations to run fuzzing.
   --fuzz-prompt FUZZ_PROMPT
@@ -206,6 +198,7 @@ predict:
     fixed_inputs: {}
     disabled_inputs: []
     iterations: 10
+    prompt: <additional prompt for the language model when selecting fuzz inputs>
 train:
   destination: <generated prediction model, e.g. andreasjansson/test-predict. leave
     blank to append '-dest' to the test model>
@@ -229,6 +222,7 @@ train:
     fixed_inputs: {}
     disabled_inputs: []
     iterations: 10
+    prompt: <additional prompt for the language model when selecting fuzz inputs>
 deployment:
   owner: <owner>
   name: <name>
