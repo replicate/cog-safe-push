@@ -45,8 +45,8 @@ def make_task_context(
 
     model = get_model(model_owner, model_name)
     if not model:
-        raise ArgumentError(
-            f"You need to create the model {model_owner}/{model_name} before running this script"
+        print(
+            f"Warning: Model {model_owner}/{model_name} doesn’t currently exist. It will be created automatically via cog push."
         )
 
     test_model = get_or_create_model(test_model_owner, test_model_name, test_hardware)
