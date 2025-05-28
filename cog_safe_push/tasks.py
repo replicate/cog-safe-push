@@ -27,6 +27,7 @@ class CheckOutputsMatch(Task):
     fuzz_fixed_inputs: dict[str, Any]
     fuzz_disabled_inputs: list[str]
     fuzz_prompt: str | None
+    prediction_index: int | None = None
 
     async def run(self) -> None:
         if self.first_test_case_inputs is not None:
@@ -50,8 +51,11 @@ class CheckOutputsMatch(Task):
                 fuzz_prompt=self.fuzz_prompt,
             )
 
+        prefix = (
+            f"[{self.prediction_index}] " if self.prediction_index is not None else ""
+        )
         log.v(
-            f"Checking outputs match between existing version and test version, with inputs: {inputs}"
+            f"{prefix}Checking outputs match between existing version and test version, with inputs: {inputs}"
         )
         test_output, test_error = await predict(
             model=self.context.test_model,
@@ -59,6 +63,7 @@ class CheckOutputsMatch(Task):
             train_destination=self.context.train_destination,
             inputs=inputs,
             timeout_seconds=self.timeout_seconds,
+            prediction_index=self.prediction_index,
         )
         output, error = await predict(
             model=self.context.model,
@@ -66,21 +71,22 @@ class CheckOutputsMatch(Task):
             train_destination=self.context.train_destination,
             inputs=inputs,
             timeout_seconds=self.timeout_seconds,
+            prediction_index=self.prediction_index,
         )
 
         if test_error is not None:
             raise OutputsDontMatchError(
-                f"Existing version raised an error: {test_error}"
+                f"{prefix}Existing version raised an error: {test_error}"
             )
         if error is not None:
-            raise OutputsDontMatchError(f"New version raised an error: {error}")
+            raise OutputsDontMatchError(f"{prefix}New version raised an error: {error}")
 
         matches, match_error = await outputs_match(
             test_output, output, is_deterministic
         )
         if not matches:
             raise OutputsDontMatchError(
-                f"Outputs don't match:\n\ntest output:\n{test_output}\n\nmodel output:\n{output}\n\n{match_error}"
+                f"{prefix}Outputs don't match:\n\ntest output:\n{test_output}\n\nmodel output:\n{output}\n\n{match_error}"
             )
 
 
@@ -90,15 +96,20 @@ class RunTestCase(Task):
     inputs: dict[str, Any]
     checker: OutputChecker
     predict_timeout: int
+    prediction_index: int | None = None
 
     async def run(self) -> None:
-        log.v(f"Running test case with inputs: {self.inputs}")
+        prefix = (
+            f"[{self.prediction_index}] " if self.prediction_index is not None else ""
+        )
+        log.v(f"{prefix}Running test case with inputs: {self.inputs}")
         output, error = await predict(
             model=self.context.test_model,
             train=self.context.is_train(),
             train_destination=self.context.train_destination,
             inputs=self.inputs,
             timeout_seconds=self.predict_timeout,
+            prediction_index=self.prediction_index,
         )
 
         await self.checker(output, error)
@@ -138,11 +149,15 @@ class FuzzModel(Task):
     context: TaskContext
     inputs_queue: Queue[dict[str, Any]]
     predict_timeout: int
+    prediction_index: int | None = None
 
     async def run(self) -> None:
         inputs = await asyncio.wait_for(self.inputs_queue.get(), timeout=60)
 
-        log.v(f"Fuzzing with inputs: {inputs}")
+        prefix = (
+            f"[{self.prediction_index}] " if self.prediction_index is not None else ""
+        )
+        log.v(f"{prefix}Fuzzing with inputs: {inputs}")
         try:
             output, error = await predict(
                 model=self.context.test_model,
@@ -150,13 +165,14 @@ class FuzzModel(Task):
                 train_destination=self.context.train_destination,
                 inputs=inputs,
                 timeout_seconds=self.predict_timeout,
+                prediction_index=self.prediction_index,
             )
         except PredictionTimeoutError:
-            raise FuzzError("Prediction timed out")
+            raise FuzzError(f"{prefix}Prediction timed out")
         if error is not None:
-            raise FuzzError(f"Prediction raised an error: {error}")
+            raise FuzzError(f"{prefix}Prediction raised an error: {error}")
         if not output:
-            raise FuzzError("No output")
+            raise FuzzError(f"{prefix}No output")
 
         if error is not None:
-            raise FuzzError(f"Prediction failed: {error}")
+            raise FuzzError(f"{prefix}Prediction failed: {error}")
