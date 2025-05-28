@@ -461,7 +461,7 @@ async def run_tasks(tasks: list[Task], parallel: int) -> None:
                 prediction_index = getattr(task, "prediction_index", None)
                 errors.append((e, prediction_index))
                 prefix = "" if prediction_index is None else f"[{prediction_index}] "
-                log.error(f"{prefix}{error}")
+                log.error(f"{prefix}{e}")
 
     # Create task coroutines and run them concurrently
     task_coroutines = [run_with_semaphore(task) for task in tasks]
