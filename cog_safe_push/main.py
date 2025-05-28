@@ -365,6 +365,7 @@ def cog_safe_push(
             raise
 
     tasks = []
+    prediction_index = 1
 
     if model_has_versions:
         log.info("Checking schema backwards compatibility")
@@ -388,8 +389,10 @@ def cog_safe_push(
                     fuzz_fixed_inputs=fuzz_fixed_inputs,
                     fuzz_disabled_inputs=fuzz_disabled_inputs,
                     fuzz_prompt=fuzz_prompt,
+                    prediction_index=prediction_index,
                 )
             )
+            prediction_index += 1
 
     if test_cases:
         for inputs, checker in test_cases:
@@ -399,8 +402,10 @@ def cog_safe_push(
                     inputs=inputs,
                     checker=checker,
                     predict_timeout=predict_timeout,
+                    prediction_index=prediction_index,
                 )
             )
+            prediction_index += 1
 
     if fuzz_iterations > 0:
         fuzz_inputs_queue = Queue(maxsize=fuzz_iterations)
@@ -420,8 +425,10 @@ def cog_safe_push(
                     context=task_context,
                     inputs_queue=fuzz_inputs_queue,
                     predict_timeout=predict_timeout,
+                    prediction_index=prediction_index,
                 )
             )
+            prediction_index += 1
 
     asyncio.run(run_tasks(tasks, parallel=parallel))
 

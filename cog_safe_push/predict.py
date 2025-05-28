@@ -231,9 +231,11 @@ async def predict(
     train_destination: Model | None,
     inputs: dict,
     timeout_seconds: float,
+    prediction_index: int | None = None,
 ) -> tuple[Any | None, str | None]:
+    prefix = f"[{prediction_index}] " if prediction_index is not None else ""
     log.vv(
-        f"Running {'training' if train else 'prediction'} with inputs:\n{json.dumps(inputs, indent=2)}"
+        f"{prefix}Running {'training' if train else 'prediction'} with inputs:\n{json.dumps(inputs, indent=2)}"
     )
 
     start_time = time.time()
@@ -261,7 +263,7 @@ async def predict(
             else:
                 raise
 
-    log.v(f"Prediction URL: https://replicate.com/p/{prediction.id}")
+    log.v(f"{prefix}Prediction URL: https://replicate.com/p/{prediction.id}")
 
     while prediction.status not in ["succeeded", "failed", "canceled"]:
         await asyncio.sleep(0.5)
@@ -272,13 +274,13 @@ async def predict(
     duration = time.time() - start_time
 
     if prediction.status == "failed":
-        log.v(f"Got error: {prediction.error}  ({duration:.2f} sec)")
+        log.v(f"{prefix}Got error: {prediction.error}  ({duration:.2f} sec)")
         return None, prediction.error
 
     output = prediction.output
     if _has_output_iterator_array_type(version):
         output = "".join(cast("list[str]", output))
 
-    log.v(f"Got output: {truncate(output)}  ({duration:.2f} sec)")
+    log.v(f"{prefix}Got output: {truncate(output)}  ({duration:.2f} sec)")
 
     return output, None
