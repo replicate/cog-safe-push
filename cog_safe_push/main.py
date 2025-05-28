@@ -460,6 +460,8 @@ async def run_tasks(tasks: list[Task], parallel: int) -> None:
                 # Get prediction index if the task has one
                 prediction_index = getattr(task, "prediction_index", None)
                 errors.append((e, prediction_index))
+                prefix = "" if prediction_index is None else f"[{prediction_index}] "
+                log.error(f"{prefix}{error}")
 
     # Create task coroutines and run them concurrently
     task_coroutines = [run_with_semaphore(task) for task in tasks]
@@ -469,10 +471,10 @@ async def run_tasks(tasks: list[Task], parallel: int) -> None:
 
     if errors:
         # Display all errors with their prediction indices
-        log.error(f"💥 Found {len(errors)} error(s):")
+        log.error(f"💥 Tests finished with {len(errors)} error(s):")
         for error, prediction_index in errors:
             prefix = "" if prediction_index is None else f"[{prediction_index}] "
-            log.error(f"{prefix}{error}")
+            log.error(f"* {prefix}{error}")
 
         sys.exit(1)
 
