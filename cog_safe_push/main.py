@@ -470,14 +470,11 @@ async def run_tasks(tasks: list[Task], parallel: int) -> None:
     if errors:
         # Display all errors with their prediction indices
         log.error(f"Found {len(errors)} error(s):")
-        for i, (error, prediction_index) in enumerate(errors, 1):
+        for error, prediction_index in errors:
             prefix = "" if prediction_index is None else f"[{prediction_index}] "
-            if prediction_index is not None:
-                log.error(f"Error {i} (prediction {prefix}): {error}")
-            else:
-                log.error(f"Error {i}: {error}")
 
-        # Exit with error code instead of raising
+            log.error(f"{prefix}{error}")
+
         sys.exit(1)
 
 
