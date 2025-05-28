@@ -458,7 +458,7 @@ async def run_tasks(tasks: list[Task], parallel: int) -> None:
                 await task.run()
             except Exception as e:
                 # Get prediction index if the task has one
-                prediction_index = getattr(task, 'prediction_index', None)
+                prediction_index = getattr(task, "prediction_index", None)
                 errors.append((e, prediction_index))
 
     # Create task coroutines and run them concurrently
@@ -471,8 +471,9 @@ async def run_tasks(tasks: list[Task], parallel: int) -> None:
         # Display all errors with their prediction indices
         log.error(f"Found {len(errors)} error(s):")
         for i, (error, prediction_index) in enumerate(errors, 1):
+            prefix = "" if prediction_index is None else f"[{prediction_index}] "
             if prediction_index is not None:
-                log.error(f"Error {i} (prediction [{prediction_index}]): {error}")
+                log.error(f"Error {i} (prediction {prefix}): {error}")
             else:
                 log.error(f"Error {i}: {error}")
 
