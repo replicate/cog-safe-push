@@ -447,17 +447,21 @@ def cog_safe_push(
 
 
 async def run_tasks(tasks: list[Task], parallel: int) -> None:
+    import sys
+
     log.info(f"Running tasks with parallelism {parallel}")
 
     semaphore = asyncio.Semaphore(parallel)
-    errors: list[Exception] = []
+    errors: list[tuple[Exception, int | None]] = []
 
     async def run_with_semaphore(task: Task) -> None:
         async with semaphore:
             try:
                 await task.run()
             except Exception as e:
-                errors.append(e)
+                # Get prediction index if the task has one
+                prediction_index = getattr(task, 'prediction_index', None)
+                errors.append((e, prediction_index))
 
     # Create task coroutines and run them concurrently
     task_coroutines = [run_with_semaphore(task) for task in tasks]
@@ -466,11 +470,16 @@ async def run_tasks(tasks: list[Task], parallel: int) -> None:
     await asyncio.gather(*task_coroutines, return_exceptions=True)
 
     if errors:
-        # If there are multiple errors, we'll raise the first one
-        # but log all of them
-        for error in errors[1:]:
-            log.error(f"Additional error occurred: {error}")
-        raise errors[0]
+        # Display all errors with their prediction indices
+        log.error(f"Found {len(errors)} error(s):")
+        for i, (error, prediction_index) in enumerate(errors, 1):
+            if prediction_index is not None:
+                log.error(f"Error {i} (prediction [{prediction_index}]): {error}")
+            else:
+                log.error(f"Error {i}: {error}")
+
+        # Exit with error code instead of raising
+        sys.exit(1)
 
 
 def parse_inputs(inputs_list: list[str]) -> dict[str, Any]:
