@@ -447,8 +447,6 @@ def cog_safe_push(
 
 
 async def run_tasks(tasks: list[Task], parallel: int) -> None:
-    import sys
-
     log.info(f"Running tasks with parallelism {parallel}")
 
     semaphore = asyncio.Semaphore(parallel)
