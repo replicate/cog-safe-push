@@ -472,7 +472,6 @@ async def run_tasks(tasks: list[Task], parallel: int) -> None:
         log.error(f"Found {len(errors)} error(s):")
         for error, prediction_index in errors:
             prefix = "" if prediction_index is None else f"[{prediction_index}] "
-
             log.error(f"{prefix}{error}")
 
         sys.exit(1)
