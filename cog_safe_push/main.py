@@ -476,7 +476,7 @@ async def run_tasks(tasks: list[Task], parallel: int) -> None:
             prefix = "" if prediction_index is None else f"[{prediction_index}] "
             log.error(f"* {prefix}{error}")
 
-        sys.exit(1)
+        raise TaskExecutionError(f"Encountered {len(errors)} task error(s).", errors)
 
 
 def parse_inputs(inputs_list: list[str]) -> dict[str, Any]:
