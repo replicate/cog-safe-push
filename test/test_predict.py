@@ -193,3 +193,41 @@ async def test_make_predict_inputs_filters_null_values(sample_schemas):
         assert "optional" not in inputs
         assert "input_image" not in inputs
         assert inputs == {"text": "hello", "number": 42, "choice": "A"}
+
+
+async def test_make_predict_inputs_filters_various_null_representations():
+    """Test that various representations of null are filtered out."""
+    schemas = {
+        "Input": {
+            "properties": {
+                "text": {"type": "string", "description": "A text input"},
+                "image": {"type": "string", "format": "uri", "description": "An image input"},
+                "number": {"type": "integer", "description": "A number input"},
+            },
+            "required": ["text"],
+        }
+    }
+
+    with patch("cog_safe_push.predict.ai.json_object") as mock_json_object:
+        mock_json_object.return_value = {
+            "text": "hello",
+            "image": None,  # Null value that should be filtered
+            "number": None,  # Another null value that should be filtered
+            "optional_field": None,  # Optional field with null that should be filtered
+        }
+
+        inputs, _ = await make_predict_inputs(
+            schemas,
+            train=False,
+            only_required=False,
+            seed=None,
+            fixed_inputs={},
+            disabled_inputs=[],
+            fuzz_prompt=None,
+        )
+
+        # Only non-null values should remain
+        assert inputs == {"text": "hello"}
+        assert "image" not in inputs
+        assert "number" not in inputs
+        assert "optional_field" not in inputs
