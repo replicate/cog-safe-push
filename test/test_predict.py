@@ -231,3 +231,47 @@ async def test_make_predict_inputs_filters_various_null_representations():
         assert "image" not in inputs
         assert "number" not in inputs
         assert "optional_field" not in inputs
+
+
+async def test_make_predict_inputs_preserves_valid_values():
+    """Test that valid values (including falsy ones) are preserved while null is filtered."""
+    schemas = {
+        "Input": {
+            "properties": {
+                "text": {"type": "string", "description": "A text input"},
+                "flag": {"type": "boolean", "description": "A boolean input"},
+                "count": {"type": "integer", "description": "A number input"},
+                "empty_string": {"type": "string", "description": "An empty string input"},
+            },
+            "required": ["text"],
+        }
+    }
+
+    with patch("cog_safe_push.predict.ai.json_object") as mock_json_object:
+        mock_json_object.return_value = {
+            "text": "hello",
+            "flag": False,  # Should be preserved (falsy but not None)
+            "count": 0,     # Should be preserved (falsy but not None)
+            "empty_string": "",  # Should be preserved (falsy but not None)
+            "null_field": None,  # Should be filtered out
+        }
+
+        inputs, _ = await make_predict_inputs(
+            schemas,
+            train=False,
+            only_required=False,
+            seed=None,
+            fixed_inputs={},
+            disabled_inputs=[],
+            fuzz_prompt=None,
+        )
+
+        # Falsy values should be preserved, only None should be filtered
+        expected = {
+            "text": "hello",
+            "flag": False,
+            "count": 0,
+            "empty_string": "",
+        }
+        assert inputs == expected
+        assert "null_field" not in inputs
