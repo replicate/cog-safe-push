@@ -166,3 +166,30 @@ async def test_make_predict_inputs_max_attempts_reached(sample_schemas):
                 disabled_inputs=[],
                 fuzz_prompt=None,
             )
+
+
+async def test_make_predict_inputs_filters_null_values(sample_schemas):
+    """Test that null values are filtered out from AI-generated inputs."""
+    with patch("cog_safe_push.predict.ai.json_object") as mock_json_object:
+        mock_json_object.return_value = {
+            "text": "hello",
+            "number": 42,
+            "choice": "A",
+            "optional": None,  # This should be filtered out
+            "input_image": None,  # This should be filtered out
+        }
+
+        inputs, _ = await make_predict_inputs(
+            sample_schemas,
+            train=False,
+            only_required=False,
+            seed=None,
+            fixed_inputs={},
+            disabled_inputs=[],
+            fuzz_prompt=None,
+        )
+
+        # Null values should be filtered out
+        assert "optional" not in inputs
+        assert "input_image" not in inputs
+        assert inputs == {"text": "hello", "number": 42, "choice": "A"}
