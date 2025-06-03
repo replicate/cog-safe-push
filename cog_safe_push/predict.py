@@ -222,6 +222,9 @@ You must follow these instructions: {fuzz_prompt}"""
             if key in inputs:
                 del inputs[key]
 
+    # Filter out null values as Replicate API doesn't accept null for optional fields
+    inputs = {k: v for k, v in inputs.items() if v is not None}
+
     return inputs, is_deterministic
 
 
