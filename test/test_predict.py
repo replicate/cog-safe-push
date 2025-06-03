@@ -201,7 +201,11 @@ async def test_make_predict_inputs_filters_various_null_representations():
         "Input": {
             "properties": {
                 "text": {"type": "string", "description": "A text input"},
-                "image": {"type": "string", "format": "uri", "description": "An image input"},
+                "image": {
+                    "type": "string",
+                    "format": "uri",
+                    "description": "An image input",
+                },
                 "number": {"type": "integer", "description": "A number input"},
             },
             "required": ["text"],
@@ -241,7 +245,10 @@ async def test_make_predict_inputs_preserves_valid_values():
                 "text": {"type": "string", "description": "A text input"},
                 "flag": {"type": "boolean", "description": "A boolean input"},
                 "count": {"type": "integer", "description": "A number input"},
-                "empty_string": {"type": "string", "description": "An empty string input"},
+                "empty_string": {
+                    "type": "string",
+                    "description": "An empty string input",
+                },
             },
             "required": ["text"],
         }
@@ -251,7 +258,7 @@ async def test_make_predict_inputs_preserves_valid_values():
         mock_json_object.return_value = {
             "text": "hello",
             "flag": False,  # Should be preserved (falsy but not None)
-            "count": 0,     # Should be preserved (falsy but not None)
+            "count": 0,  # Should be preserved (falsy but not None)
             "empty_string": "",  # Should be preserved (falsy but not None)
             "null_field": None,  # Should be filtered out
         }
