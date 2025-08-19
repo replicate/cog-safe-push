@@ -450,14 +450,18 @@ async def run_tasks(tasks: list[Task], parallel: int) -> None:
     log.info(f"Running tasks with parallelism {parallel}")
 
     semaphore = asyncio.Semaphore(parallel)
-    errors: list[Exception] = []
+    errors: list[tuple[Exception, int | None]] = []
 
     async def run_with_semaphore(task: Task) -> None:
         async with semaphore:
             try:
                 await task.run()
             except Exception as e:
-                errors.append(e)
+                # Get prediction index if the task has one
+                prediction_index = getattr(task, "prediction_index", None)
+                errors.append((e, prediction_index))
+                prefix = "" if prediction_index is None else f"[{prediction_index}] "
+                log.error(f"{prefix}{e}")
 
     # Create task coroutines and run them concurrently
     task_coroutines = [run_with_semaphore(task) for task in tasks]
@@ -466,11 +470,13 @@ async def run_tasks(tasks: list[Task], parallel: int) -> None:
     await asyncio.gather(*task_coroutines, return_exceptions=True)
 
     if errors:
-        # If there are multiple errors, we'll raise the first one
-        # but log all of them
-        for error in errors[1:]:
-            log.error(f"Additional error occurred: {error}")
-        raise errors[0]
+        # Display all errors with their prediction indices
+        log.error(f"💥 Tests finished with {len(errors)} error(s):")
+        for error, prediction_index in errors:
+            prefix = "" if prediction_index is None else f"[{prediction_index}] "
+            log.error(f"* {prefix}{error}")
+
+        raise TaskExecutionError(f"Encountered {len(errors)} task error(s).", errors)
 
 
 def parse_inputs(inputs_list: list[str]) -> dict[str, Any]:
