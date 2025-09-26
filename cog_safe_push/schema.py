@@ -101,7 +101,7 @@ def check_backwards_compatible(
     if "type" not in output_schema:
         errors.append(f"'type' is not in output_schema: {output_schema}")
 
-    if test_output_schema["type"] != output_schema["type"]:
+    if test_output_schema.get("type") != output_schema.get("type"):
         errors.append(f"{output_name} has changed type")
 
     if errors:
