@@ -1,3 +1,5 @@
+import copy
+
 from replicate.exceptions import ReplicateError
 from replicate.model import Model
 
@@ -113,13 +115,45 @@ def check_backwards_compatible(
 
 def get_openapi_schema(model: Model) -> dict:
     try:
-        return model.versions.list()[0].openapi_schema
+        schema = model.versions.list()[0].openapi_schema
     except ReplicateError as e:
         if e.status == 404:
             # Assume it's an official model
             assert model.latest_version
-            return model.latest_version.openapi_schema
-        raise
+            schema = model.latest_version.openapi_schema
+        else:
+            raise
+
+    return dereference_schema(schema)
+
+
+def dereference_schema(schema: dict) -> dict:
+    """
+    Dereference a JSON schema by resolving all $ref references.
+    """
+    result = copy.deepcopy(schema)
+
+    def resolve_ref(ref_path: str, root: dict) -> dict:
+        parts = ref_path.lstrip("#/").split("/")
+        current = root
+        for part in parts:
+            current = current[part]
+        return current
+
+    def dereference_object(obj, root):
+        if isinstance(obj, dict):
+            if "$ref" in obj:
+                ref_path = obj["$ref"]
+                resolved = resolve_ref(ref_path, root)
+                return dereference_object(resolved, root)
+            return {k: dereference_object(v, root) for k, v in obj.items()}
+        if isinstance(obj, list):
+            return [dereference_object(item, root) for item in obj]
+        return obj
+
+    dereferenced = dereference_object(result, result)
+    assert isinstance(dereferenced, dict)
+    return dereferenced
 
 
 def get_schemas(model, train: bool) -> dict:
