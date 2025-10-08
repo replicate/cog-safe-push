@@ -38,7 +38,7 @@ def async_retry(attempts=3):
 async def boolean(
     prompt: str, files: list[Path] | None = None, include_file_metadata: bool = False
 ) -> bool:
-    system_prompt = "You only answer YES or NO, and absolutely nothing else. Your response will be used in a programmatic context so it's important that you only ever answer with either the string YES or the string NO."
+    system_prompt = "You are a boolean classifier. You must only respond with either YES or NO, and absolutely nothing else. Your response will be used in a programmatic context so it is critical that you only ever answer with either the string YES or the string NO."
     # system_prompt = "You are a helpful assistant"
     output = await call(
         system_prompt=system_prompt,
