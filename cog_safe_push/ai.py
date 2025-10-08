@@ -73,7 +73,7 @@ async def call(
     if not api_key:
         raise ArgumentError("ANTHROPIC_API_KEY is not defined")
 
-    model = "claude-sonnet-4-20250514"
+    model = "claude-sonnet-4-5"
     client = anthropic.AsyncAnthropic(api_key=api_key)
 
     try:
