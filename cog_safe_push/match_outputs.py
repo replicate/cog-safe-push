@@ -22,11 +22,17 @@ async def output_matches_prompt(output: Any, prompt: str) -> tuple[bool, str]:
         urls = output if isinstance(output, list) else list(output.values())
 
     with download_many(urls) as tmp_files:
-        claude_prompt = """You are part of an automatic evaluation that compares media (text, audio, image, video, etc.) to captions. I want to know if the caption matches the text or file..
+        claude_prompt = """You are part of an automatic evaluation that compares media (text, audio, image, video, etc.) to descriptions. I want to know if the description matches the text or file..
 
 """
         if urls:
             claude_prompt += f"""Does this file(s) and the attached content of the file(s) match the description? Pay close attention to the metadata about the attached files which is included below, especially if the description mentions file type, image dimensions, or any other aspect that is described in the metadata. Do not infer file type or image dimensions from the image content, but from the attached metadata.
+
+The description may be specific or vague, but you should match on whatever is in the description. For example:
+* If the description is 'a jpg image' and it's a jpg image of a cat, that's still a match.
+* If the description is 'an image of a cat' and the image is actually of a dog, it's not a match.
+* If the description is 'an audio file' it should match any audio files regardless of content.
+* etc.
 
 Description to evaluate: {prompt}
 
