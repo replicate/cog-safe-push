@@ -13,14 +13,14 @@ positive_images = {
         "A webp image of a bird",
         "A webp image of a red bird",
     ],
-    "https://replicate.delivery/czjl/QFrZ9RF8VroFM5Ml9MKt3rm0vP8ZHTWaqfO1oT6bouj0m76JA/tmpn888w5a8.jpg": [
+    "https://replicate.delivery/xezq/7mpYHTkoCW5hFhYeyZHhc8pbNGjpZrSVypReBr4JsbXeLd7qA/tmpqsp1ykrz.jpg": [
         "A jpg image of a formula one car",
         "a jpg image of a car",
         "A jpg image",
         "Formula 1 car",
         "car",
     ],
-    "https://replicate.delivery/czjl/8C4OJCR6w7rQEFeernSerHH5e3xe2f9cYYsGTW8k5Eob57d9E/tmpjwitpu7f.png": [
+    "https://replicate.delivery/xezq/Gf7onwGGPDzgVaiQfARPWEOJZGzq94QKS3qsqlRfL9xUfi1VB/tmppfxwubub.png": [
         "480x320px png image",
         "480x320px image of a formula one car",
     ],
