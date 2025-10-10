@@ -56,6 +56,15 @@ async def boolean(
 async def json_object(prompt: str, files: list[Path] | None = None) -> dict:
     system_prompt = "You always respond with valid JSON, and nothing else (no backticks, etc.). Your outputs will be used in a programmatic context."
     output = await call(system_prompt=system_prompt, prompt=prompt.strip(), files=files)
+    
+    if output.startswith("```json"):
+        output = output[7:]
+    elif output.startswith("```"):
+        output = output[3:]
+    if output.endswith("```"):
+        output = output[:-3]
+    output = output.strip()
+    
     try:
         return json.loads(output)
     except json.JSONDecodeError:
