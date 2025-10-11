@@ -125,7 +125,11 @@ async def call(
             temperature=1.0,
             thinking=thinking_config,
         )
-        content = cast("anthropic.types.TextBlock", response.content[0])
+        
+        text_blocks = [block for block in response.content if block.type == "text"]
+        if not text_blocks:
+            raise AIError("No text content in response")
+        content = cast("anthropic.types.TextBlock", text_blocks[0])
 
     finally:
         await client.close()
