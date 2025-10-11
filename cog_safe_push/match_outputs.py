@@ -181,9 +181,17 @@ def is_video(url: str) -> bool:
 
 
 def extensions_match(url1: str, url2: str) -> bool:
-    ext1 = Path(urlparse(url1).path).suffix
-    ext2 = Path(urlparse(url2).path).suffix
+    ext1 = normalize_suffix(Path(urlparse(url1).path).suffix)
+    ext2 = normalize_suffix(Path(urlparse(url2).path).suffix)
     return ext1.lower() == ext2.lower()
+
+
+def normalize_suffix(suffix: str) -> str:
+    suffix = suffix.lower()
+    normalizations = {
+        ".jpeg": ".jpg",
+    }
+    return normalizations.get(suffix, suffix)
 
 
 def is_url(s: str) -> bool:
