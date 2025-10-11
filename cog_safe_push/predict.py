@@ -278,6 +278,9 @@ async def predict(
                 # Assume it's an official model
                 prediction = replicate.predictions.create(model=model, input=inputs)
             else:
+                print(f"{version.openapi_schema=}")  # TODO(andreas): remove debug
+                print(f"{inputs=}")  # TODO(andreas): remove debug
+
                 raise
 
     log.v(f"{prefix}Prediction URL: https://replicate.com/p/{prediction.id}")
