@@ -3,7 +3,7 @@ from unittest.mock import patch
 import pytest
 
 from cog_safe_push.exceptions import AIError
-from cog_safe_push.predict import make_predict_inputs
+from cog_safe_push.predict import make_fuzz_inputs
 
 
 @pytest.fixture
@@ -34,7 +34,7 @@ def sample_schemas():
 async def test_make_predict_inputs_basic(mock_json_object, sample_schemas):
     mock_json_object.return_value = {"text": "hello", "number": 42, "choice": "A"}
 
-    inputs, is_deterministic = await make_predict_inputs(
+    inputs, is_deterministic = await make_fuzz_inputs(
         sample_schemas,
         train=False,
         only_required=True,
@@ -52,7 +52,7 @@ async def test_make_predict_inputs_with_seed(sample_schemas):
     with patch("cog_safe_push.predict.ai.json_object") as mock_json_object:
         mock_json_object.return_value = {"text": "hello", "number": 42, "choice": "A"}
 
-        inputs, is_deterministic = await make_predict_inputs(
+        inputs, is_deterministic = await make_fuzz_inputs(
             sample_schemas,
             train=False,
             only_required=True,
@@ -70,7 +70,7 @@ async def test_make_predict_inputs_with_fixed_inputs(sample_schemas):
     with patch("cog_safe_push.predict.ai.json_object") as mock_json_object:
         mock_json_object.return_value = {"text": "hello", "number": 42, "choice": "A"}
 
-        inputs, _ = await make_predict_inputs(
+        inputs, _ = await make_fuzz_inputs(
             sample_schemas,
             train=False,
             only_required=True,
@@ -92,7 +92,7 @@ async def test_make_predict_inputs_with_disabled_inputs(sample_schemas):
             "optional": True,
         }
 
-        inputs, _ = await make_predict_inputs(
+        inputs, _ = await make_fuzz_inputs(
             sample_schemas,
             train=False,
             only_required=False,
@@ -114,7 +114,7 @@ async def test_make_predict_inputs_with_inputs_history(sample_schemas):
             {"text": "older", "number": 21, "choice": "B"},
         ]
 
-        inputs, _ = await make_predict_inputs(
+        inputs, _ = await make_fuzz_inputs(
             sample_schemas,
             train=False,
             only_required=True,
@@ -136,7 +136,7 @@ async def test_make_predict_inputs_ai_error(sample_schemas):
             {"text": "hello", "number": 42, "choice": "A"},  # Correct input
         ]
 
-        inputs, _ = await make_predict_inputs(
+        inputs, _ = await make_fuzz_inputs(
             sample_schemas,
             train=False,
             only_required=True,
@@ -157,7 +157,7 @@ async def test_make_predict_inputs_max_attempts_reached(sample_schemas):
         }  # Always missing required fields
 
         with pytest.raises(AIError):
-            await make_predict_inputs(
+            await make_fuzz_inputs(
                 sample_schemas,
                 train=False,
                 only_required=True,
@@ -179,7 +179,7 @@ async def test_make_predict_inputs_filters_null_values(sample_schemas):
             "input_image": None,  # This should be filtered out
         }
 
-        inputs, _ = await make_predict_inputs(
+        inputs, _ = await make_fuzz_inputs(
             sample_schemas,
             train=False,
             only_required=False,
@@ -220,7 +220,7 @@ async def test_make_predict_inputs_filters_various_null_representations():
             "optional_field": None,  # Optional field with null that should be filtered
         }
 
-        inputs, _ = await make_predict_inputs(
+        inputs, _ = await make_fuzz_inputs(
             schemas,
             train=False,
             only_required=False,
@@ -263,7 +263,7 @@ async def test_make_predict_inputs_preserves_valid_values():
             "null_field": None,  # Should be filtered out
         }
 
-        inputs, _ = await make_predict_inputs(
+        inputs, _ = await make_fuzz_inputs(
             schemas,
             train=False,
             only_required=False,

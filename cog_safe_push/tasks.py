@@ -11,7 +11,7 @@ from .exceptions import (
 )
 from .match_outputs import outputs_match
 from .output_checkers import OutputChecker
-from .predict import make_predict_inputs, predict
+from .predict import make_fuzz_inputs, predict
 from .task_context import TaskContext
 
 
@@ -41,7 +41,7 @@ class CheckOutputsMatch(Task):
             schemas = schema.get_schemas(
                 self.context.model, train=self.context.is_train()
             )
-            inputs, is_deterministic = await make_predict_inputs(
+            inputs, is_deterministic = await make_fuzz_inputs(
                 schemas,
                 train=self.context.is_train(),
                 only_required=True,
@@ -130,7 +130,7 @@ class MakeFuzzInputs(Task):
         )
         inputs_history = []
         for _ in range(self.num_inputs):
-            inputs, _ = await make_predict_inputs(
+            inputs, _ = await make_fuzz_inputs(
                 schemas,
                 train=self.context.is_train(),
                 only_required=False,
