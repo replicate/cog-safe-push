@@ -5,13 +5,9 @@ import mimetypes
 import os
 import subprocess
 from pathlib import Path
-from typing import TYPE_CHECKING, cast
+from typing import cast
 
 import anthropic
-from anthropic._types import NOT_GIVEN, NotGiven
-
-if TYPE_CHECKING:
-    from anthropic.types import ThinkingConfigParam
 
 from . import log
 from .exceptions import AIError, ArgumentError
