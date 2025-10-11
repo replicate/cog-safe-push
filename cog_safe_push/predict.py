@@ -224,6 +224,9 @@ You must follow these instructions: {fuzz_prompt}"""
     # Filter out null values as Replicate API doesn't accept null for optional fields
     inputs = {k: v for k, v in inputs.items() if v is not None}
 
+    print(f"{schemas_str=}, {inputs=}")  # TODO(andreas): remove debug
+
+
     return inputs, is_deterministic
 
 
