@@ -112,6 +112,10 @@ async def call(
             {"role": "user", "content": content}
         ]
 
+        thinking_config = None
+        if thinking:
+            thinking_config = {"type": "enabled", "budget_tokens": 2048}
+
         response = await client.messages.create(
             model=model,
             messages=messages,
@@ -119,6 +123,7 @@ async def call(
             max_tokens=4096,
             stream=False,
             temperature=1.0,
+            thinking=thinking_config,
         )
         content = cast("anthropic.types.TextBlock", response.content[0])
 
