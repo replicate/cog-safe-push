@@ -281,6 +281,10 @@ async def predict(
                 print(f"{version.openapi_schema=}")  # TODO(andreas): remove debug
                 print(f"{inputs=}")  # TODO(andreas): remove debug
 
+                import sys
+
+                sys.exit(1)
+
                 raise
 
     log.v(f"{prefix}Prediction URL: https://replicate.com/p/{prediction.id}")
