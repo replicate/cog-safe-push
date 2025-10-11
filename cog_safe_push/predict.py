@@ -19,8 +19,11 @@ from .utils import truncate
 
 async def make_fuzz_system_prompt() -> str:
     async with httpx.AsyncClient() as client:
-        multimedia_example_files = await client.get("https://multimedia-example-files.replicate.dev/index.txt")
-    return """# Replicate model fuzzing inputs
+        multimedia_example_files = await client.get(
+            "https://multimedia-example-files.replicate.dev/index.txt"
+        )
+    return (
+        """# Replicate model fuzzing inputs
 
 Your task is to generate inputs for model fuzzing of a Replicate model.
 
@@ -121,7 +124,9 @@ If an input have format=uri and you decide to populate that input, you should us
 
 Make sure you pick an appropriate URL for the the input, e.g. pick one of the image examples below if the input expects represents an image.
 
-""" + multimedia_example_files
+"""
+        + multimedia_example_files
+    )
 
 
 async def make_fuzz_inputs(
