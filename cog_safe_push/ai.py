@@ -12,6 +12,8 @@ import anthropic
 from . import log
 from .exceptions import AIError, ArgumentError
 
+MAX_TOKENS = 8192
+
 
 def async_retry(attempts=3):
     def decorator_retry(func):
@@ -125,7 +127,7 @@ async def call(
                 model=model,
                 messages=messages,
                 system=system_prompt,
-                max_tokens=4096,
+                max_tokens=MAX_TOKENS,
                 stream=False,
                 temperature=1.0,
                 thinking={"type": "enabled", "budget_tokens": 2048},
@@ -135,7 +137,7 @@ async def call(
                 model=model,
                 messages=messages,
                 system=system_prompt,
-                max_tokens=4096,
+                max_tokens=MAX_TOKENS,
                 stream=False,
                 temperature=1.0,
             )
