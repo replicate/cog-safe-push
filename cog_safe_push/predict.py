@@ -30,6 +30,8 @@ Your task is to generate inputs for model fuzzing of a Replicate model.
 
 Given a model input JSON schema, return a valid JSON payload for this model.
 
+## Example
+
 For example,
 
 {
@@ -110,6 +112,19 @@ A valid JSON payload for that input schema would be:
   "my_int": 10,
   "text": "world",
 }
+
+The following is be be a valid JSON payload:
+
+{
+  "my_bool": true,
+  "my_choice": "foo",
+  "my_constrained_int": 11,
+  "my_float": 3.14,
+  "my_int": 10,
+  "text": "world",
+}
+
+...because my_constrained_int is greater than the maximum in the schema.
 
 ## Respect constraints
 
