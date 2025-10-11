@@ -24,6 +24,6 @@ async def test_output_match_not_similar_images():
     url2 = "https://replicate.delivery/xezq/Zj0SX6yRmHbSM1SWXL583l4jg0N5UtiBPINOylKwq4zKWgXF/out-0.webp"
     matches, error_message = await outputs_match(url1, url2, is_deterministic=False)
     assert not matches
-    assert error_message == "Images are not similar", f"Expected 'Images are not similar' but got: {error_message}"
-
-    
+    assert error_message == "Images are not similar", (
+        f"Expected 'Images are not similar' but got: {error_message}"
+    )
