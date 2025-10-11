@@ -8,6 +8,8 @@ from pathlib import Path
 from typing import cast
 
 import anthropic
+from anthropic._types import NOT_GIVEN, NotGiven
+from anthropic.types import ThinkingConfigParam
 
 from . import log
 from .exceptions import AIError, ArgumentError
@@ -125,7 +127,7 @@ async def call(
             temperature=1.0,
             thinking=thinking_config,
         )
-        
+
         text_blocks = [block for block in response.content if block.type == "text"]
         if not text_blocks:
             raise AIError("No text content in response")
