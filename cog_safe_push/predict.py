@@ -278,7 +278,7 @@ async def predict(
                 # Assume it's an official model
                 prediction = replicate.predictions.create(model=model, input=inputs)
             else:
-                print(f"{version.openapi_schema=}")  # TODO(andreas): remove debug
+                print("version.openapi_schema:", json.dumps(version.openapi_schema, indent=2))  # TODO(andreas): remove debug
                 print(f"{inputs=}")  # TODO(andreas): remove debug
 
                 import sys
