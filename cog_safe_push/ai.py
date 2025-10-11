@@ -116,19 +116,25 @@ async def call(
             {"role": "user", "content": content}
         ]
 
-        thinking_config: ThinkingConfigParam | NotGiven = NOT_GIVEN
         if thinking:
-            thinking_config = {"type": "enabled", "budget_tokens": 2048}
-
-        response = await client.messages.create(
-            model=model,
-            messages=messages,
-            system=system_prompt,
-            max_tokens=4096,
-            stream=False,
-            temperature=1.0,
-            thinking=thinking_config,
-        )
+            response = await client.messages.create(
+                model=model,
+                messages=messages,
+                system=system_prompt,
+                max_tokens=4096,
+                stream=False,
+                temperature=1.0,
+                thinking={"type": "enabled", "budget_tokens": 2048},
+            )
+        else:
+            response = await client.messages.create(
+                model=model,
+                messages=messages,
+                system=system_prompt,
+                max_tokens=4096,
+                stream=False,
+                temperature=1.0,
+            )
 
         text_blocks = [block for block in response.content if block.type == "text"]
         if not text_blocks:
