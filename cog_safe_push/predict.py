@@ -19,9 +19,10 @@ from .utils import truncate
 
 async def make_fuzz_system_prompt() -> str:
     async with httpx.AsyncClient() as client:
-        multimedia_example_files = await client.get(
+        response = await client.get(
             "https://multimedia-example-files.replicate.dev/index.txt"
         )
+    multimedia_example_files = response.text
     return (
         """# Replicate model fuzzing inputs
 
