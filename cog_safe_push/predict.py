@@ -3,6 +3,7 @@ import json
 import time
 from typing import Any, cast
 
+import httpx
 import replicate
 from replicate.exceptions import ReplicateError
 from replicate.model import Model
@@ -16,38 +17,19 @@ from .exceptions import (
 from .utils import truncate
 
 
-async def make_predict_inputs(
-    schemas: dict,
-    train: bool,
-    only_required: bool,
-    seed: int | None,
-    fixed_inputs: dict[str, Any],
-    disabled_inputs: list[str],
-    fuzz_prompt: str | None,
-    inputs_history: list[dict] | None = None,
-    attempt=0,
-) -> tuple[dict, bool]:
-    input_name = "TrainingInput" if train else "Input"
-    input_schema = schemas[input_name]
-    properties = input_schema["properties"]
-    required = input_schema.get("required", [])
+async def make_fuzz_system_prompt() -> str:
+    async with httpx.AsyncClient() as client:
+        multimedia_example_files = await client.get("https://multimedia-example-files.replicate.dev/index.txt")
+    return """# Replicate model fuzzing inputs
 
-    is_deterministic = False
-    if "seed" in properties and seed is not None:
-        is_deterministic = True
-        del properties["seed"]
+Your task is to generate inputs for model fuzzing of a Replicate model.
 
-    fixed_inputs = {k: v for k, v in fixed_inputs.items() if k not in disabled_inputs}
+Given a model input JSON schema, return a valid JSON payload for this model.
 
-    schemas_str = json.dumps(schemas, indent=2)
-    prompt = (
-        '''
-Below is an example of an OpenAPI schema for a Cog model:
+For example,
 
 {
-  "'''
-        + input_name
-        + '''": {
+  "Input": {
     "properties": {
       "my_bool": {
         "description": "A bool.",
@@ -99,9 +81,7 @@ Below is an example of an OpenAPI schema for a Cog model:
       "my_choice",
       "my_constrained_int"
     ],
-    "title": "'''
-        + input_name
-        + """",
+    "title": "Input",
     "type": "object"
   },
   "my_choice": {
@@ -116,7 +96,7 @@ Below is an example of an OpenAPI schema for a Cog model:
   }
 }
 
-A valid json payload for that input schema would be:
+A valid JSON payload for that input schema would be:
 
 {
   "my_bool": true,
@@ -127,42 +107,54 @@ A valid json payload for that input schema would be:
   "text": "world",
 }
 
-"""
-        + f"""
-Now, given the following OpenAPI schemas:
+## Respect constraints
+
+Be careful to respect constraints. For example:
+* If there is a "maximum" or "minimum" constraint on a number input, your generated input value must not be below the minimum or above the maximum
+* If there is an allOf constraint, your input values must be one of the valid enumeration values
+* If the description of an input describes constraints, your generated input must respect those constraints
+* etc.
+
+## Multimedia file inputs
+
+If an input have format=uri and you decide to populate that input, you should use one of the media URLs from the Multimedia example files section below.
+
+Make sure you pick an appropriate URL for the the input, e.g. pick one of the image examples below if the input expects represents an image.
+
+""" + multimedia_example_files
+
+
+async def make_fuzz_inputs(
+    schemas: dict,
+    train: bool,
+    only_required: bool,
+    seed: int | None,
+    fixed_inputs: dict[str, Any],
+    disabled_inputs: list[str],
+    fuzz_prompt: str | None,
+    inputs_history: list[dict] | None = None,
+    attempt=0,
+) -> tuple[dict, bool]:
+    input_name = "TrainingInput" if train else "Input"
+    input_schema = schemas[input_name]
+    properties = input_schema["properties"]
+    required = input_schema.get("required", [])
+
+    is_deterministic = False
+    if "seed" in properties and seed is not None:
+        is_deterministic = True
+        del properties["seed"]
+
+    fixed_inputs = {k: v for k, v in fixed_inputs.items() if k not in disabled_inputs}
+
+    schemas_str = json.dumps(schemas, indent=2)
+    prompt = f"""Given the following OpenAPI schemas:
 
 {schemas_str}
 
-Generate a json payload for the {input_name} schema.
+Generate a valid JSON payload for the {input_name} schema.
 
-If an input have format=uri and you decide to populate that input, you should use one of the following media URLs. Make sure you pick an appropriate URL for the the input, e.g. pick one of the image examples below if the input expects represents an image.
-
-Image:
-* https://storage.googleapis.com/cog-safe-push-public/skull.jpg
-* https://storage.googleapis.com/cog-safe-push-public/fast-car.jpg
-* https://storage.googleapis.com/cog-safe-push-public/forest.png
-* https://storage.googleapis.com/cog-safe-push-public/face.gif
-Video:
-* https://storage.googleapis.com/cog-safe-push-public/harry-truman.webm
-* https://storage.googleapis.com/cog-safe-push-public/mariner-launch.ogv
-Music audio:
-* https://storage.googleapis.com/cog-safe-push-public/folk-music.mp3
-* https://storage.googleapis.com/cog-safe-push-public/ocarina.ogg
-* https://storage.googleapis.com/cog-safe-push-public/nu-style-kick.wav
-Test audio:
-* https://storage.googleapis.com/cog-safe-push-public/clap.ogg
-* https://storage.googleapis.com/cog-safe-push-public/beeps.mp3
-Long speech:
-* https://storage.googleapis.com/cog-safe-push-public/chekhov-article.ogg
-* https://storage.googleapis.com/cog-safe-push-public/momentos-spanish.ogg
-Short speech:
-* https://storage.googleapis.com/cog-safe-push-public/de-experiment-german-word.ogg
-* https://storage.googleapis.com/cog-safe-push-public/de-ionendosis-german-word.ogg
-
-If the schema has default values for some of the inputs, feel free to either use the defaults or come up with new values.
-
-    """
-    )
+"""
 
     if fixed_inputs:
         fixed_inputs_str = json.dumps(fixed_inputs)
@@ -192,14 +184,15 @@ Return a new combination of inputs that you haven't used before, ideally that's 
 
 You must follow these instructions: {fuzz_prompt}"""
 
-    inputs = await ai.json_object(prompt)
+    system_prompt = await make_fuzz_system_prompt()
+    inputs = await ai.json_object(prompt, system_prompt=system_prompt)
     if set(required) - set(inputs.keys()):
         max_attempts = 5
         if attempt == max_attempts:
             raise AIError(
                 f"Failed to generate a json payload with the correct keys after {max_attempts} attempts, giving up"
             )
-        return await make_predict_inputs(
+        return await make_fuzz_inputs(
             schemas=schemas,
             train=train,
             only_required=only_required,
