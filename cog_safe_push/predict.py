@@ -180,7 +180,7 @@ Generate a valid JSON payload for the {input_name} schema.
         inputs_history_str = "\n".join(["* " + json.dumps(i) for i in inputs_history])
         prompt += f"""
 
-Return a new combination of inputs that you haven't used before, ideally that's quite diverse from inputs you've used before. You have previously used these inputs:
+Return a new combination of inputs that you haven't used before, ideally that's quite diverse from inputs you've used before -- but still make sure you respect the constraints in the input schema (respecting those constraints is very important!). You have previously used these inputs:
 {inputs_history_str}"""
 
     if fuzz_prompt:
@@ -191,7 +191,7 @@ Return a new combination of inputs that you haven't used before, ideally that's 
 You must follow these instructions: {fuzz_prompt}"""
 
     system_prompt = await make_fuzz_system_prompt()
-    inputs = await ai.json_object(prompt, system_prompt=system_prompt)
+    inputs = await ai.json_object(prompt, system_prompt=system_prompt, thinking=True)
     if set(required) - set(inputs.keys()):
         max_attempts = 5
         if attempt == max_attempts:
@@ -223,9 +223,6 @@ You must follow these instructions: {fuzz_prompt}"""
 
     # Filter out null values as Replicate API doesn't accept null for optional fields
     inputs = {k: v for k, v in inputs.items() if v is not None}
-
-    print(f"{schemas_str=}, {inputs=}")  # TODO(andreas): remove debug
-
 
     return inputs, is_deterministic
 

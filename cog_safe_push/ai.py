@@ -57,12 +57,20 @@ async def boolean(
 
 @async_retry(3)
 async def json_object(
-    prompt: str, files: list[Path] | None = None, system_prompt: str = ""
+    prompt: str,
+    files: list[Path] | None = None,
+    system_prompt: str = "",
+    thinking: bool = False,
 ) -> dict:
     if system_prompt:
         system_prompt = system_prompt.strip() + "\n\n"
     system_prompt += "You always respond with valid JSON, and nothing else (no backticks, etc.). Your outputs will be used in a programmatic context."
-    output = await call(system_prompt=system_prompt, prompt=prompt.strip(), files=files)
+    output = await call(
+        system_prompt=system_prompt,
+        prompt=prompt.strip(),
+        files=files,
+        thinking=thinking,
+    )
 
     if output.startswith("```json"):
         output = output[7:]
