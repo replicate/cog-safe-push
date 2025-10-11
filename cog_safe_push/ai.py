@@ -38,13 +38,16 @@ def async_retry(attempts=3):
 async def boolean(
     prompt: str, files: list[Path] | None = None, include_file_metadata: bool = False
 ) -> bool:
-    system_prompt = "You are a boolean classifier. You must only respond with either YES or NO, and absolutely nothing else. Your response will be used in a programmatic context so it is critical that you only ever answer with either the string YES or the string NO."
+    system_prompt = "You are a boolean classifier. You must only respond with either YES or NO, and absolutely nothing else. Your response will be used in a programmatic context so it is critical that you only ever answer with either the string YES or the string NO. After a newline, include a description of why you answered like you did."
     output = await call(
         system_prompt=system_prompt,
         prompt=prompt.strip(),
         files=files,
         include_file_metadata=include_file_metadata,
+        thinking=True,
     )
+    print(f"{output=}")  # TODO(andreas): remove debug
+
     if output == "YES":
         return True
     if output == "NO":
@@ -80,6 +83,7 @@ async def call(
     prompt: str,
     files: list[Path] | None = None,
     include_file_metadata: bool = False,
+    thinking: bool = False,
 ) -> str:
     api_key = os.environ.get("ANTHROPIC_API_KEY")
     if not api_key:
