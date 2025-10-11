@@ -114,7 +114,7 @@ async def call(
             {"role": "user", "content": content}
         ]
 
-        thinking_config = None
+        thinking_config: ThinkingConfigParam | NotGiven = NOT_GIVEN
         if thinking:
             thinking_config = {"type": "enabled", "budget_tokens": 2048}
 
