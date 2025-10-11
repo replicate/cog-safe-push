@@ -190,6 +190,10 @@ def normalize_suffix(suffix: str) -> str:
     suffix = suffix.lower()
     normalizations = {
         ".jpeg": ".jpg",
+        ".jpe": ".jpg",
+        ".tiff": ".tif",
+        ".mpeg": ".mpg",
+        ".htm": ".html",
     }
     return normalizations.get(suffix, suffix)
 
