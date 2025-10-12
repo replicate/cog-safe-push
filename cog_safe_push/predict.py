@@ -282,6 +282,7 @@ async def predict(
                 print(f"{inputs=}")  # TODO(andreas): remove debug
 
                 import sys
+                sys.stdout.flush()
 
                 sys.exit(1)
 
