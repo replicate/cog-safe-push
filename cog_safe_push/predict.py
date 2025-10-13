@@ -113,7 +113,7 @@ A valid JSON payload for that input schema would be:
   "text": "world",
 }
 
-The following is be be a valid JSON payload:
+The following is NOT a valid JSON payload:
 
 {
   "my_bool": true,
@@ -138,7 +138,7 @@ Be careful to respect constraints. For example:
 
 If an input have format=uri and you decide to populate that input, you should use one of the media URLs from the Multimedia example files section below.
 
-Make sure you pick an appropriate URL for the the input, e.g. pick one of the image examples below if the input expects represents an image.
+Make sure you pick an appropriate URL for the the input, e.g. pick one of the image examples below if the input expects an image. Also make sure you respect any hints or documentation about file types.
 
 """
         + multimedia_example_files
@@ -221,6 +221,7 @@ You must follow these instructions: {fuzz_prompt}"""
             fixed_inputs=fixed_inputs,
             disabled_inputs=disabled_inputs,
             fuzz_prompt=fuzz_prompt,
+            inputs_history=inputs_history,
             attempt=attempt + 1,
         )
 
