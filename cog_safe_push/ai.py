@@ -48,8 +48,6 @@ async def boolean(
         include_file_metadata=include_file_metadata,
         thinking=True,
     )
-    print(f"{output=}")  # TODO(andreas): remove debug
-
     if output == "YES":
         return True
     if output == "NO":
