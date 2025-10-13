@@ -11,7 +11,7 @@ class Predictor(BasePredictor):
 
     def predict(
         self,
-        image: Path = Input(description="Input image."),
+        image: Path = Input(description="Input image. Valid file types are: jpg, png, webp, bmp, gif (not animated)"),
         width: int = Input(description="New width.", ge=1, le=2000),
         height: int = Input(description="New height.", ge=1, le=1000),
     ) -> Path:
