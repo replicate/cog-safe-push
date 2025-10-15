@@ -309,9 +309,12 @@ def test_parse_config_with_jq_query(tmp_path, monkeypatch):
     assert config.predict is not None
     assert len(config.predict.test_cases) == 2
     assert config.predict.test_cases[0].inputs == {"query": "test"}
-    assert config.predict.test_cases[0].jq_query == '.status == "success" and .confidence > 0.8'
+    assert (
+        config.predict.test_cases[0].jq_query
+        == '.status == "success" and .confidence > 0.8'
+    )
     assert config.predict.test_cases[1].inputs == {"count": 5}
-    assert config.predict.test_cases[1].jq_query == '.results | length == 5'
+    assert config.predict.test_cases[1].jq_query == ".results | length == 5"
 
 
 def test_parse_args_with_default_config(tmp_path, monkeypatch):

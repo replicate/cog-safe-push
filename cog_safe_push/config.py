@@ -26,7 +26,13 @@ class TestCase(BaseModel):
     def check_mutually_exclusive(self):
         set_fields = sum(
             getattr(self, field) is not None
-            for field in ["exact_string", "match_url", "match_prompt", "jq_query", "error_contains"]
+            for field in [
+                "exact_string",
+                "match_url",
+                "match_prompt",
+                "jq_query",
+                "error_contains",
+            ]
         )
         if set_fields > 1:
             raise ArgumentError(

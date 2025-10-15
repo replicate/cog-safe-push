@@ -119,9 +119,7 @@ class JqQueryChecker(OutputChecker):
                 f"jq query '{self.query}' returned falsy value: {result}\n\nApplied to data:\n{truncate(json_str, 500)}"
             )
 
-        log.info(
-            f"jq query '{self.query}' matched successfully with result: {result}"
-        )
+        log.info(f"jq query '{self.query}' matched successfully with result: {result}")
 
 
 @dataclass
