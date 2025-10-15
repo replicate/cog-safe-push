@@ -14,6 +14,7 @@ setup(
         "pydantic>=2,<3",
         "PyYAML>=6,<7",
         "requests>=2,<3",
+        "jq>=1.6.0,<2",
     ],
     entry_points={
         "console_scripts": [
