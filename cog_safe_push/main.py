@@ -25,6 +25,7 @@ from .output_checkers import (
     AIChecker,
     ErrorContainsChecker,
     ExactStringChecker,
+    JqQueryChecker,
     MatchURLChecker,
     NoChecker,
     OutputChecker,
