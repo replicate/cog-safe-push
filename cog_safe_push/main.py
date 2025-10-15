@@ -584,7 +584,11 @@ def print_help_config():
             match_prompt="<match output using AI prompt, e.g. 'an image of a cat'>",
         ),
         ConfigTestCase(
-            inputs={"<input3>": "<value3>"},
+            inputs={"<input4>": "<value4>"},
+            jq_query='<jq query to validate JSON output, e.g. ".status == \\"success\\" and .confidence > 0.8">',
+        ),
+        ConfigTestCase(
+            inputs={"<input5>": "<value5>"},
             error_contains="<assert that these inputs throws an error, and that the error message contains a string>",
         ),
     ]
