@@ -287,6 +287,33 @@ def test_parse_config_with_train(tmp_path, monkeypatch):
     assert config.train.fuzz.iterations == 8
 
 
+def test_parse_config_with_jq_query(tmp_path, monkeypatch):
+    config_yaml = """
+    model: user/model
+    predict:
+      test_cases:
+        - inputs:
+            query: test
+          jq_query: '.status == "success" and .confidence > 0.8'
+        - inputs:
+            count: 5
+          jq_query: '.results | length == 5'
+    """
+    config_file = tmp_path / "cog-safe-push.yaml"
+    config_file.write_text(config_yaml)
+    monkeypatch.setattr("sys.argv", ["cog-safe-push", "--config", str(config_file)])
+
+    config, _, _ = parse_args_and_config()
+
+    assert config.model == "user/model"
+    assert config.predict is not None
+    assert len(config.predict.test_cases) == 2
+    assert config.predict.test_cases[0].inputs == {"query": "test"}
+    assert config.predict.test_cases[0].jq_query == '.status == "success" and .confidence > 0.8'
+    assert config.predict.test_cases[1].inputs == {"count": 5}
+    assert config.predict.test_cases[1].jq_query == '.results | length == 5'
+
+
 def test_parse_args_with_default_config(tmp_path, monkeypatch):
     config_yaml = """
     model: user/default-model
