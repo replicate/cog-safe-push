@@ -243,14 +243,14 @@ async def test_jq_query_checker_or_conditions_fails():
 
 @pytest.mark.asyncio
 async def test_jq_query_checker_select_filter():
-    checker = JqQueryChecker(query='[.items[] | select(.price > 100)] | length > 0')
+    checker = JqQueryChecker(query="[.items[] | select(.price > 100)] | length > 0")
     output = {"items": [{"price": 50}, {"price": 150}, {"price": 200}]}
     await checker(output, None)
 
 
 @pytest.mark.asyncio
 async def test_jq_query_checker_select_filter_fails():
-    checker = JqQueryChecker(query='[.items[] | select(.price > 100)] | length > 0')
+    checker = JqQueryChecker(query="[.items[] | select(.price > 100)] | length > 0")
     output = {"items": [{"price": 50}, {"price": 75}]}
     with pytest.raises(TestCaseFailedError, match="returned falsy value"):
         await checker(output, None)
