@@ -19,17 +19,18 @@ class TestCase(BaseModel):
     exact_string: str | None = None
     match_url: str | None = None
     match_prompt: str | None = None
+    jq_query: str | None = None
     error_contains: str | None = None
 
     @model_validator(mode="after")
     def check_mutually_exclusive(self):
         set_fields = sum(
             getattr(self, field) is not None
-            for field in ["exact_string", "match_url", "match_prompt", "error_contains"]
+            for field in ["exact_string", "match_url", "match_prompt", "jq_query", "error_contains"]
         )
         if set_fields > 1:
             raise ArgumentError(
-                "At most one of 'exact_string', 'match_url', 'match_prompt', or 'error_contains' must be set"
+                "At most one of 'exact_string', 'match_url', 'match_prompt', 'jq_query', or 'error_contains' must be set"
             )
         return self
 
