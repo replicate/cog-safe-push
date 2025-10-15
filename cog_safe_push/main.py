@@ -553,6 +553,8 @@ def parse_config_test_case(
         checker = MatchURLChecker(url=config_test_case.match_url)
     elif config_test_case.match_prompt:
         checker = AIChecker(prompt=config_test_case.match_prompt)
+    elif config_test_case.jq_query:
+        checker = JqQueryChecker(query=config_test_case.jq_query)
     elif config_test_case.error_contains:
         checker = ErrorContainsChecker(string=config_test_case.error_contains)
     else:
