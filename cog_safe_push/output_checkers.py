@@ -83,6 +83,48 @@ class AIChecker(OutputChecker):
 
 
 @dataclass
+class JqQueryChecker(OutputChecker):
+    query: str
+
+    async def __call__(self, output: Any | None, error: str | None) -> None:
+        check_no_error(error)
+
+        try:
+            import jq
+        except ImportError:
+            raise TestCaseFailedError(
+                "jq library not installed. Install with: pip install jq"
+            )
+
+        json_data = output
+        if isinstance(output, str):
+            try:
+                json_data = json.loads(output)
+            except json.JSONDecodeError:
+                raise TestCaseFailedError(
+                    f"Output is a string but not valid JSON: {truncate(output, 200)}"
+                )
+
+        try:
+            compiled = jq.compile(self.query)
+            result = compiled.input_value(json_data).first()
+        except ValueError as e:
+            raise TestCaseFailedError(f"jq query error: {str(e)}")
+        except Exception as e:
+            raise TestCaseFailedError(f"jq execution failed: {str(e)}")
+
+        if not result:
+            json_str = json.dumps(json_data, indent=2)
+            raise TestCaseFailedError(
+                f"jq query '{self.query}' returned falsy value: {result}\n\nApplied to data:\n{truncate(json_str, 500)}"
+            )
+
+        log.info(
+            f"jq query '{self.query}' matched successfully with result: {result}"
+        )
+
+
+@dataclass
 class ErrorContainsChecker(OutputChecker):
     string: str
 
