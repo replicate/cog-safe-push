@@ -54,7 +54,7 @@ async def test_jq_query_checker_array_length_fails():
 @pytest.mark.asyncio
 async def test_jq_query_checker_multiple_conditions():
     checker = JqQueryChecker(
-        query='.status == "success" and .confidence > 0.8 and .results | length > 0'
+        query='.status == "success" and .confidence > 0.8 and (.results | length) > 0'
     )
     output = {"status": "success", "confidence": 0.9, "results": [1, 2, 3]}
     await checker(output, None)
@@ -63,7 +63,7 @@ async def test_jq_query_checker_multiple_conditions():
 @pytest.mark.asyncio
 async def test_jq_query_checker_multiple_conditions_fails():
     checker = JqQueryChecker(
-        query='.status == "success" and .confidence > 0.8 and .results | length > 0'
+        query='.status == "success" and .confidence > 0.8 and (.results | length) > 0'
     )
     output = {"status": "success", "confidence": 0.9, "results": []}
     with pytest.raises(TestCaseFailedError, match="returned falsy value"):
