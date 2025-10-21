@@ -140,6 +140,8 @@ If an input have format=uri and you decide to populate that input, you should us
 
 Make sure you pick an appropriate URL for the the input, e.g. pick one of the image examples below if the input expects an image. Also make sure you respect any hints or documentation about file types.
 
+Important: Don't use SVG files unless the model explicitly supports SVG (most don't, but some svg-to-image, or vectorization models do).
+
 """
         + multimedia_example_files
     )
