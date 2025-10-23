@@ -480,3 +480,42 @@ def test_parse_args_push_official_model(monkeypatch):
     assert config.model == "user/model"
     assert not no_push
     assert push_official_model
+
+
+@pytest.mark.asyncio
+async def test_run_tasks_reports_all_errors_with_details(capsys):
+    class FailingTask(Task):
+        def __init__(self, prediction_index, prediction_url, error_message):
+            self.prediction_index = prediction_index
+            self.prediction_url = prediction_url
+            self.error_message = error_message
+
+        async def run(self):
+            raise TestCaseFailedError(self.error_message)
+
+    class FailingTaskNoUrl(Task):
+        def __init__(self, prediction_index, error_message):
+            self.prediction_index = prediction_index
+            self.error_message = error_message
+
+        async def run(self):
+            raise TestCaseFailedError(self.error_message)
+
+    tasks = [
+        FailingTask(1, "https://replicate.com/p/abc123", "Output mismatch"),
+        FailingTask(2, "https://replicate.com/p/def456", "Timeout occurred"),
+        FailingTaskNoUrl(3, "Invalid input"),
+    ]
+
+    with pytest.raises(TestCaseFailedError):
+        await run_tasks(tasks, parallel=2)
+
+    captured = capsys.readouterr()
+    error_output = captured.err
+
+    # All errors should be logged
+    assert "[1] Test case failed: Test case failed: Output mismatch; Prediction URL: https://replicate.com/p/abc123" in error_output
+    assert "[2] Test case failed: Test case failed: Timeout occurred; Prediction URL: https://replicate.com/p/def456" in error_output
+    assert "[3] Test case failed: Test case failed: Invalid input" in error_output
+    # Should not have prediction URL in the third error
+    assert "Invalid input; Prediction URL:" not in error_output
