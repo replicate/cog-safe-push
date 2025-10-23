@@ -154,6 +154,7 @@ class FuzzModel(Task):
     inputs_queue: Queue[dict[str, Any]]
     predict_timeout: int
     prediction_index: int | None = None
+    prediction_url: str | None = None
 
     async def run(self) -> None:
         inputs = await asyncio.wait_for(self.inputs_queue.get(), timeout=60)
@@ -163,7 +164,7 @@ class FuzzModel(Task):
         )
         log.v(f"{prefix}Fuzzing with inputs: {inputs}")
         try:
-            output, error = await predict(
+            output, error, url = await predict(
                 model=self.context.test_model,
                 train=self.context.is_train(),
                 train_destination=self.context.train_destination,
@@ -171,6 +172,7 @@ class FuzzModel(Task):
                 timeout_seconds=self.predict_timeout,
                 prediction_index=self.prediction_index,
             )
+            self.prediction_url = url
         except PredictionTimeoutError:
             raise FuzzError(f"{prefix}Prediction timed out")
         if error is not None:
