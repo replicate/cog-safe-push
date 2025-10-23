@@ -471,15 +471,17 @@ async def run_tasks(tasks: list[Task], parallel: int) -> None:
         for task, error in errors:
             prediction_index = getattr(task, "prediction_index", None)
             prediction_url = getattr(task, "prediction_url", None)
-            
+
             prefix = f"[{prediction_index}] " if prediction_index is not None else ""
             message = str(error)
-            
+
             if prediction_url:
-                log.error(f"{prefix}Test case failed: {message}; Prediction URL: {prediction_url}")
+                log.error(
+                    f"{prefix}Test case failed: {message}; Prediction URL: {prediction_url}"
+                )
             else:
                 log.error(f"{prefix}Test case failed: {message}")
-        
+
         raise errors[0][1]
 
 

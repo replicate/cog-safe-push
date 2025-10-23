@@ -1,5 +1,3 @@
-import asyncio
-
 import pytest
 
 from cog_safe_push import log
@@ -514,8 +512,14 @@ async def test_run_tasks_reports_all_errors_with_details(capsys):
     error_output = captured.err
 
     # All errors should be logged
-    assert "[1] Test case failed: Test case failed: Output mismatch; Prediction URL: https://replicate.com/p/abc123" in error_output
-    assert "[2] Test case failed: Test case failed: Timeout occurred; Prediction URL: https://replicate.com/p/def456" in error_output
+    assert (
+        "[1] Test case failed: Test case failed: Output mismatch; Prediction URL: https://replicate.com/p/abc123"
+        in error_output
+    )
+    assert (
+        "[2] Test case failed: Test case failed: Timeout occurred; Prediction URL: https://replicate.com/p/def456"
+        in error_output
+    )
     assert "[3] Test case failed: Test case failed: Invalid input" in error_output
     # Should not have prediction URL in the third error
     assert "Invalid input; Prediction URL:" not in error_output
