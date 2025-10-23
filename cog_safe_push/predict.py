@@ -252,7 +252,7 @@ async def predict(
     inputs: dict,
     timeout_seconds: float,
     prediction_index: int | None = None,
-) -> tuple[Any | None, str | None]:
+) -> tuple[Any | None, str | None, str]:
     prefix = f"[{prediction_index}] " if prediction_index is not None else ""
     log.vv(
         f"{prefix}Running {'training' if train else 'prediction'} with inputs:\n{json.dumps(inputs, indent=2)}"
@@ -283,7 +283,8 @@ async def predict(
             else:
                 raise
 
-    log.v(f"{prefix}Prediction URL: https://replicate.com/p/{prediction.id}")
+    prediction_url = f"https://replicate.com/p/{prediction.id}"
+    log.v(f"{prefix}Prediction URL: {prediction_url}")
 
     while prediction.status not in ["succeeded", "failed", "canceled"]:
         await asyncio.sleep(0.5)
@@ -295,7 +296,7 @@ async def predict(
 
     if prediction.status == "failed":
         log.v(f"{prefix}Got error: {prediction.error}  ({duration:.2f} sec)")
-        return None, prediction.error
+        return None, prediction.error, prediction_url
 
     output = prediction.output
     if _has_output_iterator_array_type(version):
@@ -303,4 +304,4 @@ async def predict(
 
     log.v(f"{prefix}Got output: {truncate(output)}  ({duration:.2f} sec)")
 
-    return output, None
+    return output, None, prediction_url
