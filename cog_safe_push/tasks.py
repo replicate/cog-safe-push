@@ -99,13 +99,14 @@ class RunTestCase(Task):
     checker: OutputChecker
     predict_timeout: int
     prediction_index: int | None = None
+    prediction_url: str | None = None
 
     async def run(self) -> None:
         prefix = (
             f"[{self.prediction_index}] " if self.prediction_index is not None else ""
         )
         log.v(f"{prefix}Running test case with inputs: {self.inputs}")
-        output, error = await predict(
+        output, error, url = await predict(
             model=self.context.test_model,
             train=self.context.is_train(),
             train_destination=self.context.train_destination,
@@ -113,6 +114,7 @@ class RunTestCase(Task):
             timeout_seconds=self.predict_timeout,
             prediction_index=self.prediction_index,
         )
+        self.prediction_url = url
 
         await self.checker(output, error)
 
