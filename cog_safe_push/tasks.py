@@ -28,6 +28,7 @@ class CheckOutputsMatch(Task):
     fuzz_disabled_inputs: list[str]
     fuzz_prompt: str | None
     prediction_index: int | None = None
+    prediction_url: str | None = None
 
     async def run(self) -> None:
         if self.first_test_case_inputs is not None:
@@ -57,7 +58,7 @@ class CheckOutputsMatch(Task):
         log.v(
             f"{prefix}Checking outputs match between existing version and test version, with inputs: {inputs}"
         )
-        test_output, test_error = await predict(
+        test_output, test_error, test_url = await predict(
             model=self.context.test_model,
             train=self.context.is_train(),
             train_destination=self.context.train_destination,
@@ -65,7 +66,8 @@ class CheckOutputsMatch(Task):
             timeout_seconds=self.timeout_seconds,
             prediction_index=self.prediction_index,
         )
-        output, error = await predict(
+        self.prediction_url = test_url
+        output, error, _ = await predict(
             model=self.context.model,
             train=self.context.is_train(),
             train_destination=self.context.train_destination,
