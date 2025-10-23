@@ -451,14 +451,14 @@ async def run_tasks(tasks: list[Task], parallel: int) -> None:
     log.info(f"Running tasks with parallelism {parallel}")
 
     semaphore = asyncio.Semaphore(parallel)
-    errors: list[Exception] = []
+    errors: list[tuple[Task, Exception]] = []
 
     async def run_with_semaphore(task: Task) -> None:
         async with semaphore:
             try:
                 await task.run()
             except Exception as e:
-                errors.append(e)
+                errors.append((task, e))
 
     # Create task coroutines and run them concurrently
     task_coroutines = [run_with_semaphore(task) for task in tasks]
@@ -467,11 +467,20 @@ async def run_tasks(tasks: list[Task], parallel: int) -> None:
     await asyncio.gather(*task_coroutines, return_exceptions=True)
 
     if errors:
-        # If there are multiple errors, we'll raise the first one
-        # but log all of them
-        for error in errors[1:]:
-            log.error(f"Additional error occurred: {error}")
-        raise errors[0]
+        # Log all failures with their test case number and prediction URL
+        for task, error in errors:
+            prediction_index = getattr(task, "prediction_index", None)
+            prediction_url = getattr(task, "prediction_url", None)
+            
+            prefix = f"[{prediction_index}] " if prediction_index is not None else ""
+            message = str(error)
+            
+            if prediction_url:
+                log.error(f"{prefix}Test case failed: {message}; Prediction URL: {prediction_url}")
+            else:
+                log.error(f"{prefix}Test case failed: {message}")
+        
+        raise errors[0][1]
 
 
 def parse_inputs(inputs_list: list[str]) -> dict[str, Any]:
