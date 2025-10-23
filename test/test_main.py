@@ -1,13 +1,17 @@
+import asyncio
+
 import pytest
 
 from cog_safe_push import log
-from cog_safe_push.exceptions import ArgumentError
+from cog_safe_push.exceptions import ArgumentError, TestCaseFailedError
 from cog_safe_push.main import (
     parse_args_and_config,
     parse_input_value,
     parse_inputs,
     parse_model,
+    run_tasks,
 )
+from cog_safe_push.tasks import Task
 
 
 def test_parse_args_minimal(monkeypatch):
