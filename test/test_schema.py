@@ -194,3 +194,33 @@ def test_multiple_incompatibilities():
     assert "Input choice is missing choices: 'C'" in error_message
     assert "Input new_required is new and is required" in error_message
     assert "Output has changed type" in error_message
+
+
+def test_lint_deprecated_input_without_description():
+    mock_model = Mock()
+    mock_model.versions.list.return_value = [
+        Mock(
+            openapi_schema={
+                "components": {
+                    "schemas": {
+                        "Input": {
+                            "properties": {
+                                "steps": {
+                                    "type": "integer",
+                                    "minimum": 1,
+                                    "maximum": 50,
+                                    "default": 25,
+                                    "deprecated": True,
+                                },
+                                "prompt": {
+                                    "type": "string",
+                                    "description": "The prompt to use",
+                                },
+                            }
+                        }
+                    }
+                }
+            }
+        )
+    ]
+    lint(mock_model, train=False)
