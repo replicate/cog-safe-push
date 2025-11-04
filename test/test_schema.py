@@ -1,5 +1,6 @@
-import pytest
 from unittest.mock import Mock
+
+import pytest
 
 from cog_safe_push.schema import (
     IncompatibleSchemaError,
