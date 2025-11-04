@@ -13,6 +13,8 @@ def lint(model: Model, train: bool):
     schema = get_openapi_schema(model)
     properties = schema["components"]["schemas"][input_name]["properties"]
     for name, spec in properties.items():
+        if spec.get("deprecated", False):
+            continue
         description = spec.get("description")
         if not description:
             errors.append(f"{name}: Missing description")
