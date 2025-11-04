@@ -44,7 +44,7 @@ def push(
     process.wait()
 
     if process.returncode != 0:
-        raise subprocess.CalledProcessError(process.returncode, ["cog", "push", url])
+        raise subprocess.CalledProcessError(process.returncode, cmd)
 
     if not sha256_id:
         raise ValueError("No sha256 ID found in cog push output")
