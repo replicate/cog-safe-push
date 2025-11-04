@@ -1,7 +1,12 @@
 import pytest
 from unittest.mock import Mock
 
-from cog_safe_push.schema import IncompatibleSchemaError, check_backwards_compatible, lint
+from cog_safe_push.schema import (
+    IncompatibleSchemaError,
+    SchemaLintError,
+    check_backwards_compatible,
+    lint,
+)
 
 
 def test_identical_schemas():
