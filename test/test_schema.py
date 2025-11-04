@@ -229,3 +229,29 @@ def test_lint_deprecated_input_without_description():
         )
     ]
     lint(mock_model, train=False)
+
+
+def test_lint_non_deprecated_input_without_description():
+    mock_model = Mock()
+    mock_model.versions.list.return_value = [
+        Mock(
+            openapi_schema={
+                "components": {
+                    "schemas": {
+                        "Input": {
+                            "properties": {
+                                "steps": {
+                                    "type": "integer",
+                                    "minimum": 1,
+                                    "maximum": 50,
+                                    "default": 25,
+                                },
+                            }
+                        }
+                    }
+                }
+            }
+        )
+    ]
+    with pytest.raises(SchemaLintError, match="steps: Missing description"):
+        lint(mock_model, train=False)
