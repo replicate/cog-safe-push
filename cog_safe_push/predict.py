@@ -283,7 +283,7 @@ async def predict(
             else:
                 raise
 
-    prediction_url = f"https://replicate.com/p/{prediction.id}"
+    prediction_url = f"https://replicate.com/p-legacy/{prediction.id}"
     log.v(f"{prefix}Prediction URL: {prediction_url}")
 
     while prediction.status not in ["succeeded", "failed", "canceled"]:

@@ -500,8 +500,8 @@ async def test_run_tasks_reports_all_errors_with_details(capsys):
             raise TestCaseFailedError(self.error_message)
 
     tasks = [
-        FailingTask(1, "https://replicate.com/p/abc123", "Output mismatch"),
-        FailingTask(2, "https://replicate.com/p/def456", "Timeout occurred"),
+        FailingTask(1, "https://replicate.com/p-legacy/abc123", "Output mismatch"),
+        FailingTask(2, "https://replicate.com/p-legacy/def456", "Timeout occurred"),
         FailingTaskNoUrl(3, "Invalid input"),
     ]
 
@@ -513,11 +513,11 @@ async def test_run_tasks_reports_all_errors_with_details(capsys):
 
     # All errors should be logged
     assert (
-        "[1] Test case failed: Test case failed: Output mismatch; Prediction URL: https://replicate.com/p/abc123"
+        "[1] Test case failed: Test case failed: Output mismatch; Prediction URL: https://replicate.com/p-legacy/abc123"
         in error_output
     )
     assert (
-        "[2] Test case failed: Test case failed: Timeout occurred; Prediction URL: https://replicate.com/p/def456"
+        "[2] Test case failed: Test case failed: Timeout occurred; Prediction URL: https://replicate.com/p-legacy/def456"
         in error_output
     )
     assert "[3] Test case failed: Test case failed: Invalid input" in error_output
