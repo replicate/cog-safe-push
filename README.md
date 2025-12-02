@@ -7,7 +7,7 @@ Safely push a Cog model version by making sure it works and is backwards-compati
 
 ## Prerequisites
 
-1. Set the `ANTHROPIC_API_KEY` and `REPLICATE_API_TOKEN` environment variables.
+1. Set the `REPLICATE_API_TOKEN` environment variable.
 1. Install Cog and `cog login`
 1. If you're running this from a cloned source, `pip install .` in the `cog-safe-push` directory.
 
