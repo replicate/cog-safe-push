@@ -39,16 +39,17 @@ def async_retry(attempts=3):
 async def boolean(
     prompt: str, files: list[Path] | None = None, include_file_metadata: bool = False
 ) -> bool:
-    system_prompt = "You are a boolean classifier. You must only respond with either YES or NO, and absolutely nothing else. Your response will be used in a programmatic context so it is critical that you only ever answer with either the string YES or the string NO."
+    system_prompt = "You are a boolean classifier. You must end your response with either YES or NO, and absolutely nothing else. Your response will be used in a programmatic context so it is critical that the final string of your answer is either the uppercase string YES or NO (no quotes, backticks, parenthesis, etc.)."
     output = await call(
         system_prompt=system_prompt,
         prompt=prompt.strip(),
         files=files,
         include_file_metadata=include_file_metadata,
     )
-    if output == "YES":
+    output = output.strip()
+    if output.endswith("YES"):
         return True
-    if output == "NO":
+    if output.endswith("NO"):
         return False
     raise AIError(f"Failed to parse output as YES/NO: {output}")
 
