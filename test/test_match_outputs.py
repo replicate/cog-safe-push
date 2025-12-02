@@ -234,5 +234,25 @@ async def test_large_structure_performance():
     assert end_time - start_time < 1  # Ensure it completes in less than 1 second
 
 
+@pytest.mark.integration
+async def test_audio_transcription_match():
+    """Test that audio containing speech can be matched against a description."""
+    audio_url = "https://multimedia-example-files.replicate.dev/short-pronunciation.1s.speech-english.wav"
+    matches, message = await output_matches_prompt(
+        audio_url, "an audio file containing someone saying the word 'short'"
+    )
+    assert matches, f"Audio transcription should match description: {message}"
+
+
+@pytest.mark.integration
+async def test_audio_transcription_mismatch():
+    """Test that audio is correctly identified as not matching wrong description."""
+    audio_url = "https://multimedia-example-files.replicate.dev/short-pronunciation.1s.speech-english.wav"
+    matches, _ = await output_matches_prompt(
+        audio_url, "an audio file containing someone saying the word 'elephant'"
+    )
+    assert not matches, "Audio should not match incorrect description"
+
+
 if __name__ == "__main__":
     pytest.main()
