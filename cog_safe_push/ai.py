@@ -10,8 +10,8 @@ import replicate
 from . import log
 from .exceptions import AIError
 
-MAX_TOKENS = 8192
-MODEL = "anthropic/claude-4.5-sonnet"
+MAX_TOKENS = 65535
+MODEL = "google/gemini-3-pro"
 
 
 def async_retry(attempts=3):
@@ -88,55 +88,78 @@ async def call(
     files: list[Path] | None = None,
     include_file_metadata: bool = False,
 ) -> str:
+    full_prompt = prompt
+    if system_prompt:
+        full_prompt = f"{system_prompt}\n\n{prompt}"
+
     input_params: dict = {
-        "prompt": prompt,
-        "system_prompt": system_prompt,
-        "max_tokens": MAX_TOKENS,
+        "prompt": full_prompt,
+        "max_output_tokens": MAX_TOKENS,
+        "temperature": 1,
+        "top_p": 0.95,
     }
 
     if files:
         if include_file_metadata:
-            prompt += "\n\nMetadata for the attached file(s):\n"
+            full_prompt += "\n\nMetadata for the attached file(s):\n"
             for path in files:
-                prompt += "* " + file_info(path) + "\n"
-            input_params["prompt"] = prompt
+                full_prompt += "* " + file_info(path) + "\n"
+            input_params["prompt"] = full_prompt
 
-        image_uris = create_image_data_uris(files)
-        if image_uris:
-            input_params["image"] = image_uris[0]
-            if len(image_uris) > 1:
+        images, audio_files = categorize_files(files)
+
+        if images:
+            input_params["images"] = [create_data_uri(img) for img in images]
+
+        if audio_files:
+            if len(audio_files) > 1:
                 log.warning(
-                    f"Replicate Claude wrapper only supports one image, ignoring {len(image_uris) - 1} additional images"
+                    f"Only one audio file supported, ignoring {len(audio_files) - 1} additional audio files"
                 )
+            input_params["audio"] = create_data_uri(audio_files[0])
 
-        log.vvv(f"Claude prompt with {len(files)} files: {prompt}")
+        log.vvv(f"Gemini prompt with {len(files)} files: {full_prompt}")
     else:
-        log.vvv(f"Claude prompt: {prompt}")
+        log.vvv(f"Gemini prompt: {full_prompt}")
 
     output_parts = []
     for event in replicate.stream(MODEL, input=input_params):
         output_parts.append(str(event))
 
     output = "".join(output_parts)
-    log.vvv(f"Claude response: {output}")
+    log.vvv(f"Gemini response: {output}")
     return output
 
 
-def create_image_data_uris(files: list[Path]) -> list[str]:
-    uris = []
+def categorize_files(files: list[Path]) -> tuple[list[Path], list[Path]]:
+    images = []
+    audio_files = []
+
+    image_extensions = {".jpg", ".jpeg", ".png", ".gif", ".bmp", ".webp"}
+    audio_extensions = {".mp3", ".wav", ".ogg", ".flac", ".m4a", ".oga", ".opus"}
+
     for path in files:
-        with path.open("rb") as f:
-            encoded_string = base64.b64encode(f.read()).decode()
+        ext = path.suffix.lower()
+        if ext in image_extensions:
+            images.append(path)
+        elif ext in audio_extensions:
+            audio_files.append(path)
+        else:
+            images.append(path)
 
-        mime_type, _ = mimetypes.guess_type(path, strict=False)
-        if mime_type is None:
-            mime_type = "application/octet-stream"
-            log.v(f"Detected mime type {mime_type} for {path}")
+    return images, audio_files
 
-        data_uri = f"data:{mime_type};base64,{encoded_string}"
-        uris.append(data_uri)
 
-    return uris
+def create_data_uri(path: Path) -> str:
+    with path.open("rb") as f:
+        encoded_string = base64.b64encode(f.read()).decode()
+
+    mime_type, _ = mimetypes.guess_type(path, strict=False)
+    if mime_type is None:
+        mime_type = "application/octet-stream"
+        log.v(f"Detected mime type {mime_type} for {path}")
+
+    return f"data:{mime_type};base64,{encoded_string}"
 
 
 def file_info(p: Path) -> str:
