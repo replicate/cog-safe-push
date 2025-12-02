@@ -10,7 +10,7 @@ import replicate
 from . import log
 from .exceptions import AIError
 
-MAX_TOKENS = 65535
+MAX_TOKENS = 8192
 MODEL = "google/gemini-3-pro"
 
 
