@@ -92,3 +92,54 @@ async def test_image_output_matches_prompt_negative(file_url: str, prompt: str):
     """Test that images in the negative directory don't match their prompts."""
     matches, _ = await output_matches_prompt(file_url, prompt)
     assert not matches, f"Image should not match prompt '{prompt}'"
+
+
+positive_audio = {
+    "https://multimedia-example-files.replicate.dev/short-pronunciation.1s.speech-english.wav": [
+        "an audio file containing someone saying the word 'short'",
+        "speech in English",
+        "a wav audio file",
+    ],
+    "https://multimedia-example-files.replicate.dev/german-deutsch.1s.speech-german.wav": [
+        "an audio file containing German speech",
+        "someone saying the word 'deutsch'",
+        "a wav audio file",
+    ],
+}
+
+negative_audio = {
+    "https://multimedia-example-files.replicate.dev/short-pronunciation.1s.speech-english.wav": [
+        "an audio file containing someone saying the word 'elephant'",
+        "speech in French",
+        "an mp3 audio file",
+        "music",
+    ],
+    "https://multimedia-example-files.replicate.dev/german-deutsch.1s.speech-german.wav": [
+        "an audio file containing English speech",
+        "someone saying the word 'hello'",
+        "an mp3 audio file",
+        "piano music",
+    ],
+}
+
+
+@pytest.mark.parametrize(
+    ("file_url", "prompt"),
+    get_captioned_images(positive_audio, iterations_per_image=1),
+    ids=lambda x: Path(x[0]).name if isinstance(x, tuple) else x,
+)
+async def test_audio_output_matches_prompt_positive(file_url: str, prompt: str):
+    """Test that audio files match their descriptions."""
+    matches, message = await output_matches_prompt(file_url, prompt)
+    assert matches, f"Audio should match prompt '{prompt}'. Error: {message}"
+
+
+@pytest.mark.parametrize(
+    ("file_url", "prompt"),
+    get_captioned_images(negative_audio, iterations_per_image=1),
+    ids=lambda x: Path(x[0]).name if isinstance(x, tuple) else x,
+)
+async def test_audio_output_matches_prompt_negative(file_url: str, prompt: str):
+    """Test that audio files don't match incorrect descriptions."""
+    matches, _ = await output_matches_prompt(file_url, prompt)
+    assert not matches, f"Audio should not match prompt '{prompt}'"
