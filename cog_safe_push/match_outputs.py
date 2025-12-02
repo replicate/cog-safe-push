@@ -238,7 +238,7 @@ async def images_match(
 
 
 async def audios_match(
-    url1: str, url2: str, is_deterministic: bool
+    url1: str, url2: str, is_deterministic: bool  # noqa: ARG001 TODO: use is_deterministic
 ) -> tuple[bool, str]:
     # TODO: is_deterministic branch - compare audio waveforms or similar
     with download(url1) as tmp1, download(url2) as tmp2:
