@@ -8,7 +8,6 @@ setup(
     packages=find_packages(),
     install_requires=[
         "replicate>=1.0.3,<2",
-        "anthropic>=0.21.3,<1",
         "pillow>=10.0.0",
         "ruff>=0.6.1,<1",
         "pydantic>=2,<3",
