@@ -8,7 +8,6 @@ from cog_safe_push.match_outputs import (
     is_image,
     is_url,
     is_video,
-    output_matches_prompt,
     outputs_match,
 )
 
