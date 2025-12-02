@@ -208,7 +208,7 @@ Return a new combination of inputs that you haven't used before, ideally that's 
 You must follow these instructions: {fuzz_prompt}"""
 
     system_prompt = await make_fuzz_system_prompt()
-    inputs = await ai.json_object(prompt, system_prompt=system_prompt, thinking=True)
+    inputs = await ai.json_object(prompt, system_prompt=system_prompt)
     if set(required) - set(inputs.keys()):
         max_attempts = 5
         if attempt == max_attempts:
