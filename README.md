@@ -81,7 +81,6 @@ jobs:
 
     - name: Push selected models
       env:
-        ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
         REPLICATE_API_TOKEN: ${{ secrets.REPLICATE_API_TOKEN }}
       run: |
         cog-safe-push ${{ inputs.model }}
