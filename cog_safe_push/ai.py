@@ -2,17 +2,16 @@ import base64
 import functools
 import json
 import mimetypes
-import os
 import subprocess
 from pathlib import Path
-from typing import cast
 
-import anthropic
+import replicate
 
 from . import log
-from .exceptions import AIError, ArgumentError
+from .exceptions import AIError
 
 MAX_TOKENS = 8192
+MODEL = "anthropic/claude-4.5-sonnet"
 
 
 def async_retry(attempts=3):
@@ -46,7 +45,6 @@ async def boolean(
         prompt=prompt.strip(),
         files=files,
         include_file_metadata=include_file_metadata,
-        thinking=True,
     )
     if output == "YES":
         return True
@@ -60,7 +58,6 @@ async def json_object(
     prompt: str,
     files: list[Path] | None = None,
     system_prompt: str = "",
-    thinking: bool = False,
 ) -> dict:
     if system_prompt:
         system_prompt = system_prompt.strip() + "\n\n"
@@ -69,7 +66,6 @@ async def json_object(
         system_prompt=system_prompt,
         prompt=prompt.strip(),
         files=files,
-        thinking=thinking,
     )
 
     if output.startswith("```json"):
@@ -91,72 +87,43 @@ async def call(
     prompt: str,
     files: list[Path] | None = None,
     include_file_metadata: bool = False,
-    thinking: bool = False,
 ) -> str:
-    api_key = os.environ.get("ANTHROPIC_API_KEY")
-    if not api_key:
-        raise ArgumentError("ANTHROPIC_API_KEY is not defined")
+    input_params: dict = {
+        "prompt": prompt,
+        "system_prompt": system_prompt,
+        "max_tokens": MAX_TOKENS,
+    }
 
-    model = "claude-sonnet-4-5"
-    client = anthropic.AsyncAnthropic(api_key=api_key)
+    if files:
+        if include_file_metadata:
+            prompt += "\n\nMetadata for the attached file(s):\n"
+            for path in files:
+                prompt += "* " + file_info(path) + "\n"
+            input_params["prompt"] = prompt
 
-    try:
-        if files:
-            content = create_content_list(files)
+        image_uris = create_image_data_uris(files)
+        if image_uris:
+            input_params["image"] = image_uris[0]
+            if len(image_uris) > 1:
+                log.warning(
+                    f"Replicate Claude wrapper only supports one image, ignoring {len(image_uris) - 1} additional images"
+                )
 
-            if include_file_metadata:
-                prompt += "\n\nMetadata for the attached file(s):\n"
-                for path in files:
-                    prompt += "* " + file_info(path) + "\n"
+        log.vvv(f"Claude prompt with {len(files)} files: {prompt}")
+    else:
+        log.vvv(f"Claude prompt: {prompt}")
 
-            content.append({"type": "text", "text": prompt})
+    output_parts = []
+    for event in replicate.stream(MODEL, input=input_params):
+        output_parts.append(str(event))
 
-            log.vvv(f"Claude prompt with {len(files)} files: {prompt}")
-        else:
-            content = prompt
-            log.vvv(f"Claude prompt: {prompt}")
-
-        messages: list[anthropic.types.MessageParam] = [
-            {"role": "user", "content": content}
-        ]
-
-        if thinking:
-            response = await client.messages.create(
-                model=model,
-                messages=messages,
-                system=system_prompt,
-                max_tokens=MAX_TOKENS,
-                stream=False,
-                temperature=1.0,
-                thinking={"type": "enabled", "budget_tokens": 2048},
-            )
-        else:
-            response = await client.messages.create(
-                model=model,
-                messages=messages,
-                system=system_prompt,
-                max_tokens=MAX_TOKENS,
-                stream=False,
-                temperature=1.0,
-            )
-
-        text_blocks = [block for block in response.content if block.type == "text"]
-        if not text_blocks:
-            raise AIError("No text content in response")
-        content = cast("anthropic.types.TextBlock", text_blocks[0])
-
-    finally:
-        await client.close()
-
-    output = content.text
+    output = "".join(output_parts)
     log.vvv(f"Claude response: {output}")
     return output
 
 
-def create_content_list(
-    files: list[Path],
-) -> list[anthropic.types.ImageBlockParam | anthropic.types.TextBlockParam]:
-    content = []
+def create_image_data_uris(files: list[Path]) -> list[str]:
+    uris = []
     for path in files:
         with path.open("rb") as f:
             encoded_string = base64.b64encode(f.read()).decode()
@@ -166,18 +133,10 @@ def create_content_list(
             mime_type = "application/octet-stream"
             log.v(f"Detected mime type {mime_type} for {path}")
 
-        content.append(
-            {
-                "type": "image",  # only image is supported
-                "source": {
-                    "type": "base64",
-                    "media_type": mime_type,
-                    "data": encoded_string,
-                },
-            }
-        )
+        data_uri = f"data:{mime_type};base64,{encoded_string}"
+        uris.append(data_uri)
 
-    return content
+    return uris
 
 
 def file_info(p: Path) -> str:
