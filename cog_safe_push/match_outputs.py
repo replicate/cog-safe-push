@@ -159,7 +159,7 @@ async def urls_match(url1: str, url2: str, is_deterministic: bool) -> tuple[bool
         return await images_match(url1, url2, is_deterministic)
 
     if is_audio(url1):
-        return audios_match(url1, url2, is_deterministic)
+        return await audios_match(url1, url2, is_deterministic)
 
     if is_video(url1):
         return videos_match(url1, url2, is_deterministic)
