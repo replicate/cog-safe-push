@@ -191,6 +191,54 @@ def test_removed_choice():
         check_backwards_compatible(new, old, train=False)
 
 
+def test_realistic_enum_with_metadata():
+    """Test enum with full realistic metadata (like aspect_ratio)."""
+    old = {
+        "Input": make_input_schema(
+            {
+                "aspect_ratio": {
+                    "allOf": [
+                        {
+                            "enum": ["1:1", "2:3", "3:2", "4:3", "16:9"],
+                            "type": "string",
+                            "title": "aspect_ratio",
+                            "description": "An enumeration.",
+                        }
+                    ],
+                    "default": "1:1",
+                    "x-order": 2,
+                    "description": "Aspect ratio for expansion.",
+                }
+            }
+        ),
+        "Output": {"type": "string", "title": "Output", "format": "uri"},
+    }
+    new = {
+        "Input": make_input_schema(
+            {
+                "aspect_ratio": {
+                    "allOf": [
+                        {
+                            "enum": ["1:1", "2:3", "3:2", "4:3"],  # removed 16:9
+                            "type": "string",
+                            "title": "aspect_ratio",
+                            "description": "An enumeration.",
+                        }
+                    ],
+                    "default": "1:1",
+                    "x-order": 2,
+                    "description": "Aspect ratio for expansion.",
+                }
+            }
+        ),
+        "Output": {"type": "string", "title": "Output", "format": "uri"},
+    }
+    with pytest.raises(
+        IncompatibleSchemaError, match="Input aspect_ratio is missing choices: '16:9'"
+    ):
+        check_backwards_compatible(new, old, train=False)
+
+
 def test_new_required_input():
     old = {
         "Input": make_input_schema({"text": {"type": "string"}}),
