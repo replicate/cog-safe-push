@@ -227,10 +227,9 @@ def test_multiple_incompatibilities():
             {
                 "text": {"type": "string"},
                 "number": {"type": "integer", "minimum": 0},
-                "choice": {"allOf": [{"$ref": "#/components/schemas/choice"}]},
+                "choice": {"allOf": [{"type": "string", "enum": ["A", "B", "C"]}]},
             }
         ),
-        "choice": {"type": "string", "enum": ["A", "B", "C"]},
         "Output": {"type": "string"},
     }
     new = {
@@ -238,11 +237,10 @@ def test_multiple_incompatibilities():
             {
                 "text": {"type": "integer"},
                 "number": {"type": "integer", "minimum": 1},
-                "choice": {"allOf": [{"$ref": "#/components/schemas/choice"}]},
+                "choice": {"allOf": [{"type": "string", "enum": ["A", "B"]}]},
                 "new_required": {"type": "string"},
             }
         ),
-        "choice": {"type": "string", "enum": ["A", "B"]},
         "Output": {"type": "integer"},
     }
     with pytest.raises(IncompatibleSchemaError) as exc_info:
