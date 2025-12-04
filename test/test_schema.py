@@ -133,20 +133,18 @@ def test_decreased_maximum():
         check_backwards_compatible(new, old, train=False)
 
 
-def test_changed_choice_type_with_ref():
-    """Test enum type change when using $ref."""
+def test_changed_choice_type():
+    """Test enum type change with inline allOf."""
     old = {
         "Input": make_input_schema(
-            {"choice": {"allOf": [{"$ref": "#/components/schemas/choice"}]}}
+            {"choice": {"allOf": [{"type": "string", "enum": ["A", "B", "C"]}]}}
         ),
-        "choice": {"type": "string", "enum": ["A", "B", "C"]},
         "Output": {"type": "string"},
     }
     new = {
         "Input": make_input_schema(
-            {"choice": {"allOf": [{"$ref": "#/components/schemas/choice"}]}}
+            {"choice": {"allOf": [{"type": "integer", "enum": [1, 2, 3]}]}}
         ),
-        "choice": {"type": "integer", "enum": [1, 2, 3]},
         "Output": {"type": "string"},
     }
     with pytest.raises(
@@ -156,38 +154,35 @@ def test_changed_choice_type_with_ref():
         check_backwards_compatible(new, old, train=False)
 
 
-def test_added_choice_with_ref():
-    """Test adding enum choices when using $ref."""
+def test_added_choice():
+    """Test adding enum choices is backwards compatible."""
     old = {
         "Input": make_input_schema(
-            {"choice": {"allOf": [{"$ref": "#/components/schemas/choice"}]}}
+            {"choice": {"allOf": [{"type": "string", "enum": ["A", "B", "C"]}]}}
         ),
-        "choice": {"type": "string", "enum": ["A", "B", "C"]},
         "Output": {"type": "string"},
     }
     new = {
         "Input": make_input_schema(
-            {"choice": {"allOf": [{"$ref": "#/components/schemas/choice"}]}}
+            {"choice": {"allOf": [{"type": "string", "enum": ["A", "B", "C", "D"]}]}}
         ),
-        "choice": {"type": "string", "enum": ["A", "B", "C", "D"]},
         "Output": {"type": "string"},
     }
     check_backwards_compatible(new, old, train=False)  # Should not raise
 
 
 def test_removed_choice():
+    """Test removing enum choices breaks compatibility."""
     old = {
         "Input": make_input_schema(
-            {"choice": {"allOf": [{"$ref": "#/components/schemas/choice"}]}}
+            {"choice": {"allOf": [{"type": "string", "enum": ["A", "B", "C"]}]}}
         ),
-        "choice": {"type": "string", "enum": ["A", "B", "C"]},
         "Output": {"type": "string"},
     }
     new = {
         "Input": make_input_schema(
-            {"choice": {"allOf": [{"$ref": "#/components/schemas/choice"}]}}
+            {"choice": {"allOf": [{"type": "string", "enum": ["A", "B"]}]}}
         ),
-        "choice": {"type": "string", "enum": ["A", "B"]},
         "Output": {"type": "string"},
     }
     with pytest.raises(
