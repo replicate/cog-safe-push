@@ -72,14 +72,8 @@ def check_backwards_compatible(
             # We allow defaults to be changed
 
         elif "allOf" in spec:
-            if "$ref" in spec["allOf"][0]:
-                ref_name = spec["allOf"][0]["$ref"].split("/")[-1]
-                choice_schema = model_schemas[ref_name]
-                test_ref_name = test_spec["allOf"][0]["$ref"].split("/")[-1]
-                test_choice_schema = test_model_schemas[test_ref_name]
-            else:
-                choice_schema = spec["allOf"][0]
-                test_choice_schema = test_spec["allOf"][0]
+            choice_schema = spec["allOf"][0]
+            test_choice_schema = test_spec["allOf"][0]
 
             choice_type = choice_schema["type"]
             test_choice_type = test_choice_schema["type"]
