@@ -36,8 +36,8 @@ def check_backwards_compatible(
     input_name = "TrainingInput" if train else "Input"
     output_name = "TrainingOutput" if train else "Output"
 
-    test_inputs = test_model_schemas[input_name]
-    inputs = model_schemas[input_name]
+    test_inputs = test_model_schemas[input_name]["properties"]
+    inputs = model_schemas[input_name]["properties"]
 
     errors = []
     for name, spec in inputs.items():
