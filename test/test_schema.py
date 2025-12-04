@@ -275,6 +275,120 @@ def test_training_input_schema():
         check_backwards_compatible(new, old, train=True)
 
 
+def test_realistic_schema_structure():
+    """Test with a realistic schema structure from get_schemas().
+
+    This guards against the bug where check_backwards_compatible expected
+    Input to be the properties dict directly, but get_schemas returns:
+    {"Input": {"type": "object", "properties": {...}}}
+    """
+    old = {
+        "Input": {
+            "type": "object",
+            "title": "Input",
+            "properties": {
+                "seed": {
+                    "type": "integer",
+                    "title": "Seed",
+                    "x-order": 8,
+                    "nullable": True,
+                    "description": "Random seed. Set for reproducible generation",
+                },
+                "image": {
+                    "type": "string",
+                    "title": "Image",
+                    "format": "uri",
+                    "x-order": 0,
+                    "nullable": True,
+                    "description": "Image file",
+                },
+                "prompt": {
+                    "type": "string",
+                    "title": "Prompt",
+                    "x-order": 6,
+                    "nullable": True,
+                    "description": "Text prompt for image generation",
+                },
+            },
+        },
+        "Output": {"type": "string"},
+    }
+    new = {
+        "Input": {
+            "type": "object",
+            "title": "Input",
+            "properties": {
+                "seed": {
+                    "type": "integer",
+                    "title": "Seed",
+                    "x-order": 8,
+                    "nullable": True,
+                    "description": "Random seed. Set for reproducible generation",
+                },
+                "image": {
+                    "type": "string",
+                    "title": "Image",
+                    "format": "uri",
+                    "x-order": 0,
+                    "nullable": True,
+                    "description": "Image file",
+                },
+                "prompt": {
+                    "type": "string",
+                    "title": "Prompt",
+                    "x-order": 6,
+                    "nullable": True,
+                    "description": "Text prompt for image generation",
+                },
+            },
+        },
+        "Output": {"type": "string"},
+    }
+    check_backwards_compatible(new, old, train=False)  # Should not raise
+
+
+def test_realistic_schema_structure_with_incompatibility():
+    """Test realistic schema detects incompatibilities."""
+    old = {
+        "Input": {
+            "type": "object",
+            "title": "Input",
+            "properties": {
+                "steps": {
+                    "type": "integer",
+                    "title": "Steps",
+                    "minimum": 1,
+                    "maximum": 100,
+                    "default": 25,
+                    "x-order": 0,
+                    "description": "Number of steps",
+                },
+            },
+        },
+        "Output": {"type": "string"},
+    }
+    new = {
+        "Input": {
+            "type": "object",
+            "title": "Input",
+            "properties": {
+                "steps": {
+                    "type": "integer",
+                    "title": "Steps",
+                    "minimum": 10,  # Higher minimum - breaking change
+                    "maximum": 100,
+                    "default": 25,
+                    "x-order": 0,
+                    "description": "Number of steps",
+                },
+            },
+        },
+        "Output": {"type": "string"},
+    }
+    with pytest.raises(IncompatibleSchemaError, match="steps has a higher minimum"):
+        check_backwards_compatible(new, old, train=False)
+
+
 def test_lint_deprecated_input_without_description():
     mock_model = Mock()
     mock_model.versions.list.return_value = [
