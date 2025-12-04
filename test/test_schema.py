@@ -133,7 +133,8 @@ def test_decreased_maximum():
         check_backwards_compatible(new, old, train=False)
 
 
-def test_changed_choice_type():
+def test_changed_choice_type_with_ref():
+    """Test enum type change when using $ref."""
     old = {
         "Input": make_input_schema(
             {"choice": {"allOf": [{"$ref": "#/components/schemas/choice"}]}}
@@ -155,7 +156,8 @@ def test_changed_choice_type():
         check_backwards_compatible(new, old, train=False)
 
 
-def test_added_choice():
+def test_added_choice_with_ref():
+    """Test adding enum choices when using $ref."""
     old = {
         "Input": make_input_schema(
             {"choice": {"allOf": [{"$ref": "#/components/schemas/choice"}]}}
