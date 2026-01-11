@@ -289,7 +289,7 @@ async def predict(
     while prediction.status not in ["succeeded", "failed", "canceled"]:
         await asyncio.sleep(0.5)
         if time.time() - start_time > timeout_seconds:
-            raise PredictionTimeoutError()
+            raise PredictionTimeoutError(f"{prefix}Prediction timed out after {timeout_seconds} seconds")
         prediction.reload()
 
     duration = time.time() - start_time
