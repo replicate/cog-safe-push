@@ -2,6 +2,7 @@ import json
 import os
 import shutil
 import tempfile
+import time
 import uuid
 from contextlib import contextmanager, suppress
 from pathlib import Path
@@ -9,7 +10,7 @@ from pathlib import Path
 import httpx
 import pytest
 import replicate
-from replicate.exceptions import ReplicateException
+from replicate.exceptions import ReplicateError, ReplicateException
 
 from cog_safe_push import log
 from cog_safe_push.config import Config
@@ -415,14 +416,28 @@ def delete_model(model_owner, model_name):
     with suppress(httpx.RemoteProtocolError):
         for version in model.versions.list():
             print(f"Deleting version {version.id}")
-            with suppress(json.JSONDecodeError):
-                # bug in replicate-python causes delete to throw JSONDecodeError
-                model.versions.delete(version.id)
+            delete_version(model, version.id)
 
         print(f"Deleting model {model_owner}/{model_name}")
         with suppress(json.JSONDecodeError):
             # bug in replicate-python causes delete to throw JSONDecodeError
             replicate.models.delete(model_owner, model_name)
+
+
+def delete_version(model, version_id, attempts=4):
+    for attempt in range(1, attempts + 1):
+        try:
+            model.versions.delete(version_id)
+            return
+        except ReplicateError as e:
+            if e.status == 404:
+                return
+            if e.status is None or e.status < 500 or attempt == attempts:
+                raise
+            log.warning(
+                f"Deleting version {version_id} returned {e.status}, retrying ({attempt}/{attempts})"
+            )
+            time.sleep(5 * attempt)
 
 
 @contextmanager
