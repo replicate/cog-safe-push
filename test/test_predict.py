@@ -1,9 +1,9 @@
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 
 from cog_safe_push.exceptions import AIError
-from cog_safe_push.predict import make_fuzz_inputs
+from cog_safe_push.predict import make_fuzz_inputs, predict
 
 
 @pytest.fixture
@@ -282,3 +282,62 @@ async def test_make_predict_inputs_preserves_valid_values():
         }
         assert inputs == expected
         assert "null_field" not in inputs
+
+
+def make_version(output_schema):
+    version = MagicMock()
+    version.id = "version-id"
+    version.cog_version = "0.23.1"
+    version.openapi_schema = {"components": {"schemas": {"Output": output_schema}}}
+    return version
+
+
+@pytest.mark.parametrize(
+    ("output_schema", "raw_output", "expected"),
+    [
+        (
+            {"type": "string", "format": "uri"},
+            ["https://example.com/out.png"],
+            "https://example.com/out.png",
+        ),
+        (
+            {"type": "string", "format": "uri"},
+            "https://example.com/out.png",
+            "https://example.com/out.png",
+        ),
+        (
+            {"type": "array", "items": {"type": "string", "format": "uri"}},
+            ["https://example.com/out.png"],
+            ["https://example.com/out.png"],
+        ),
+        (
+            {
+                "type": "array",
+                "items": {"type": "string"},
+                "x-cog-array-type": "iterator",
+            },
+            ["hello ", "world"],
+            "hello world",
+        ),
+    ],
+)
+async def test_predict_output_follows_output_schema(
+    output_schema, raw_output, expected
+):
+    model = MagicMock()
+    model.versions.list.return_value = [make_version(output_schema)]
+    prediction = MagicMock(id="prediction-id", status="succeeded", output=raw_output)
+
+    with patch(
+        "cog_safe_push.predict.replicate.predictions.create", return_value=prediction
+    ):
+        output, error, _ = await predict(
+            model=model,
+            train=False,
+            train_destination=None,
+            inputs={},
+            timeout_seconds=10,
+        )
+
+    assert error is None
+    assert output == expected
