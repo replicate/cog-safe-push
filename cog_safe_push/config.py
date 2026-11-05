@@ -2,7 +2,7 @@ import argparse
 import sys
 from typing import Optional
 
-from pydantic import BaseModel, ConfigDict, model_validator
+from pydantic import BaseModel, ConfigDict, field_validator, model_validator
 
 from .exceptions import ArgumentError
 
@@ -83,6 +83,17 @@ class DeploymentConfig(BaseModel):
     owner: str | None = None
     name: str | None = None
     hardware: str | None = None
+
+    @field_validator("name")
+    @classmethod
+    def name_must_not_include_owner(cls, name: str | None) -> str | None:
+        if name is not None and "/" in name:
+            owner, _, short_name = name.partition("/")
+            raise ValueError(
+                f'deployment.name must not include the owner ("{name}"); '
+                f"set deployment.owner: {owner} and deployment.name: {short_name}"
+            )
+        return name
 
 
 class Config(BaseModel):

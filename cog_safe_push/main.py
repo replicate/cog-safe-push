@@ -160,6 +160,11 @@ def parse_args_and_config() -> tuple[Config, bool, bool]:
         help="Push to the official model defined in the config",
         action="store_true",
     )
+    parser.add_argument(
+        "--validate-config",
+        help="Load and validate the config, then exit without testing or pushing anything. Needs no REPLICATE_API_TOKEN, cog, or network access.",
+        action="store_true",
+    )
     args = parser.parse_args()
 
     if args.verbose > 3:
@@ -206,6 +211,10 @@ def parse_args_and_config() -> tuple[Config, bool, bool]:
 
     if not config.test_model:
         config.test_model = config.model + "-test"
+
+    if args.validate_config:
+        print(f"OK: {config_path or 'command line'} is a valid config")
+        sys.exit(0)
 
     return config, args.no_push, args.push_official_model
 

@@ -1,8 +1,10 @@
 import pytest
 
 from cog_safe_push import log
+from cog_safe_push import main as main_module
 from cog_safe_push.exceptions import ArgumentError, TestCaseFailedError
 from cog_safe_push.main import (
+    main,
     parse_args_and_config,
     parse_input_value,
     parse_inputs,
@@ -523,3 +525,77 @@ async def test_run_tasks_reports_all_errors_with_details(capsys):
     assert "[3] Test case failed: Test case failed: Invalid input" in error_output
     # Should not have prediction URL in the third error
     assert "Invalid input; Prediction URL:" not in error_output
+
+
+def write_config(tmp_path, deployment_name):
+    config_path = tmp_path / "cog-safe-push.yaml"
+    config_path.write_text(
+        f"""
+model: user/model
+deployment:
+  owner: replicate
+  name: {deployment_name}
+"""
+    )
+    return config_path
+
+
+def test_config_rejects_owner_prefixed_deployment_name(tmp_path, monkeypatch):
+    config_path = write_config(tmp_path, "replicate/foo")
+    monkeypatch.setattr("sys.argv", ["cog-safe-push", "--config", str(config_path)])
+    with pytest.raises(ArgumentError, match="deployment.name must not include"):
+        parse_args_and_config()
+
+
+def test_config_accepts_plain_deployment_name(tmp_path, monkeypatch):
+    config_path = write_config(tmp_path, "foo")
+    monkeypatch.setattr("sys.argv", ["cog-safe-push", "--config", str(config_path)])
+    config, _, _ = parse_args_and_config()
+    assert config.deployment is not None
+    assert config.deployment.name == "foo"
+    assert config.deployment.owner == "replicate"
+
+
+def test_validate_config_valid(tmp_path, monkeypatch, capsys):
+    config_path = write_config(tmp_path, "foo")
+    monkeypatch.delenv("REPLICATE_API_TOKEN", raising=False)
+    monkeypatch.setattr(
+        "sys.argv", ["cog-safe-push", "--config", str(config_path), "--validate-config"]
+    )
+    with pytest.raises(SystemExit) as exc_info:
+        parse_args_and_config()
+    assert exc_info.value.code == 0
+    assert "OK" in capsys.readouterr().out
+
+
+def test_validate_config_invalid(tmp_path, monkeypatch, capsys):
+    config_path = write_config(tmp_path, "replicate/foo")
+    monkeypatch.delenv("REPLICATE_API_TOKEN", raising=False)
+    monkeypatch.setattr(
+        "sys.argv", ["cog-safe-push", "--config", str(config_path), "--validate-config"]
+    )
+    with pytest.raises(SystemExit) as exc_info:
+        main()
+    assert exc_info.value.code == 1
+    err = capsys.readouterr().err
+    assert "deployment.name must not include the owner" in err
+    assert "deployment.owner: replicate and deployment.name: foo" in err
+
+
+def test_validate_config_makes_no_network_calls(tmp_path, monkeypatch):
+    import socket
+
+    def fail(*_args, **_kwargs):
+        raise AssertionError("network used")
+
+    monkeypatch.setattr(socket, "socket", fail)
+    monkeypatch.setattr(socket, "create_connection", fail)
+    monkeypatch.setattr(main_module, "run_config", fail)
+    config_path = write_config(tmp_path, "foo")
+    monkeypatch.delenv("REPLICATE_API_TOKEN", raising=False)
+    monkeypatch.setattr(
+        "sys.argv", ["cog-safe-push", "--config", str(config_path), "--validate-config"]
+    )
+    with pytest.raises(SystemExit) as exc_info:
+        main()
+    assert exc_info.value.code == 0
