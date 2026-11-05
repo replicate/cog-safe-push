@@ -1,5 +1,8 @@
 import json
 import os
+import shutil
+import tempfile
+import time
 import uuid
 from contextlib import contextmanager, suppress
 from pathlib import Path
@@ -7,7 +10,7 @@ from pathlib import Path
 import httpx
 import pytest
 import replicate
-from replicate.exceptions import ReplicateException
+from replicate.exceptions import ReplicateError, ReplicateException
 
 from cog_safe_push import log
 from cog_safe_push.config import Config
@@ -23,6 +26,10 @@ from cog_safe_push.output_checkers import (
 from cog_safe_push.task_context import make_task_context
 
 log.set_verbosity(2)
+
+TEST_IMAGE_URL = "https://multimedia-example-files.replicate.dev/philips-pm5544.768x576.retro-tv-test.png"
+TEST_IMAGE_WIDTH = 768
+TEST_IMAGE_HEIGHT = 576
 
 
 def test_cog_safe_push():
@@ -126,33 +133,31 @@ def test_cog_safe_push_images():
                 test_cases=[
                     (
                         {
-                            "image": "https://storage.googleapis.com/cog-safe-push-public/fast-car.jpg",
-                            "width": 1024,
-                            "height": 639,
+                            "image": TEST_IMAGE_URL,
+                            "width": TEST_IMAGE_WIDTH,
+                            "height": TEST_IMAGE_HEIGHT,
                         },
-                        MatchURLChecker(
-                            "https://storage.googleapis.com/cog-safe-push-public/fast-car.jpg"
-                        ),
+                        MatchURLChecker(TEST_IMAGE_URL),
                     ),
                     (
                         {
-                            "image": "https://storage.googleapis.com/cog-safe-push-public/fast-car.jpg",
+                            "image": TEST_IMAGE_URL,
                             "width": 200,
                             "height": 100,
                         },
-                        AIChecker("An image of a car"),
+                        AIChecker("A TV test pattern with color bars"),
                     ),
                     (
                         {
-                            "image": "https://storage.googleapis.com/cog-safe-push-public/fast-car.jpg",
+                            "image": TEST_IMAGE_URL,
                             "width": 200,
                             "height": 100,
                         },
-                        AIChecker("A jpg image"),
+                        AIChecker("A png image"),
                     ),
                     (
                         {
-                            "image": "https://storage.googleapis.com/cog-safe-push-public/fast-car.jpg",
+                            "image": TEST_IMAGE_URL,
                             "width": 200,
                             "height": 100,
                         },
@@ -160,7 +165,7 @@ def test_cog_safe_push_images():
                     ),
                     (
                         {
-                            "image": "https://storage.googleapis.com/cog-safe-push-public/fast-car.jpg",
+                            "image": TEST_IMAGE_URL,
                             "width": 200,
                             "height": 100,
                         },
@@ -310,11 +315,11 @@ def test_cog_safe_push_deployment():
                 test_cases=[
                     (
                         {
-                            "image": "https://storage.googleapis.com/cog-safe-push-public/fast-car.jpg",
+                            "image": TEST_IMAGE_URL,
                             "width": 200,
                             "height": 100,
                         },
-                        AIChecker("An image of a car"),
+                        AIChecker("A TV test pattern with color bars"),
                     ),
                 ],
             )
@@ -411,9 +416,7 @@ def delete_model(model_owner, model_name):
     with suppress(httpx.RemoteProtocolError):
         for version in model.versions.list():
             print(f"Deleting version {version.id}")
-            with suppress(json.JSONDecodeError):
-                # bug in replicate-python causes delete to throw JSONDecodeError
-                model.versions.delete(version.id)
+            delete_version(model, version.id)
 
         print(f"Deleting model {model_owner}/{model_name}")
         with suppress(json.JSONDecodeError):
@@ -421,13 +424,34 @@ def delete_model(model_owner, model_name):
             replicate.models.delete(model_owner, model_name)
 
 
+def delete_version(model, version_id, attempts=4):
+    for attempt in range(1, attempts + 1):
+        try:
+            model.versions.delete(version_id)
+            return
+        except ReplicateError as e:
+            if e.status == 404:
+                return
+            if e.status is None or e.status < 500 or attempt == attempts:
+                raise
+            log.warning(
+                f"Deleting version {version_id} returned {e.status}, retrying ({attempt}/{attempts})"
+            )
+            time.sleep(5 * attempt)
+
+
 @contextmanager
 def fixture_dir(fixture_name):
-    current_file_path = Path(__file__).resolve()
-    fixture_dir = current_file_path.parent / "fixtures" / fixture_name
+    # Cog keeps build state in .cog/ inside the project directory, and
+    # concurrent cog runs in one directory delete each other's state. Tests
+    # run in parallel and share fixtures, so each gets its own copy.
+    source_dir = Path(__file__).resolve().parent / "fixtures" / fixture_name
     current_dir = Path.cwd()
-    try:
-        os.chdir(fixture_dir)
-        yield
-    finally:
-        os.chdir(current_dir)
+    with tempfile.TemporaryDirectory() as tmp:
+        project_dir = Path(tmp) / fixture_name
+        shutil.copytree(source_dir, project_dir)
+        try:
+            os.chdir(project_dir)
+            yield
+        finally:
+            os.chdir(current_dir)

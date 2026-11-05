@@ -6,6 +6,10 @@ import yaml
 
 from .exceptions import CodeLintError
 
+# Ruff 0.16 widened its default rules to include style checks such as B008,
+# which flags the idiomatic `x: Path = Input(...)`. Keep the pre-0.16 defaults.
+RUFF_SELECT = "E4,E7,E9,F"
+
 
 def lint_predict():
     cog_config = load_cog_config()
@@ -40,7 +44,7 @@ def lint_file(filename: str):
 
     try:
         subprocess.run(
-            ["ruff", "check", filename, "--ignore=E402"],
+            ["ruff", "check", filename, f"--select={RUFF_SELECT}", "--ignore=E402"],
             check=True,
             capture_output=True,
             text=True,
