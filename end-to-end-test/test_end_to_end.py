@@ -1,5 +1,7 @@
 import json
 import os
+import shutil
+import tempfile
 import uuid
 from contextlib import contextmanager, suppress
 from pathlib import Path
@@ -423,11 +425,16 @@ def delete_model(model_owner, model_name):
 
 @contextmanager
 def fixture_dir(fixture_name):
-    current_file_path = Path(__file__).resolve()
-    fixture_dir = current_file_path.parent / "fixtures" / fixture_name
+    # Cog keeps build state in .cog/ inside the project directory, and
+    # concurrent cog runs in one directory delete each other's state. Tests
+    # run in parallel and share fixtures, so each gets its own copy.
+    source_dir = Path(__file__).resolve().parent / "fixtures" / fixture_name
     current_dir = Path.cwd()
-    try:
-        os.chdir(fixture_dir)
-        yield
-    finally:
-        os.chdir(current_dir)
+    with tempfile.TemporaryDirectory() as tmp:
+        project_dir = Path(tmp) / fixture_name
+        shutil.copytree(source_dir, project_dir)
+        try:
+            os.chdir(project_dir)
+            yield
+        finally:
+            os.chdir(current_dir)
