@@ -29,10 +29,10 @@ positive_images = {
         "an anime illustration",
         "a lake",
     ],
-    "https://storage.googleapis.com/cog-safe-push-public/fast-car.jpg": [
-        "An image of a car",
-        "A jpg image",
-        "A image with width 1024px and height 639px",
+    "https://multimedia-example-files.replicate.dev/philips-pm5544.768x576.retro-tv-test.png": [
+        "A TV test pattern with color bars",
+        "A png image",
+        "A image with width 768px and height 576px",
     ],
 }
 

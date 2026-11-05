@@ -26,6 +26,10 @@ from cog_safe_push.task_context import make_task_context
 
 log.set_verbosity(2)
 
+TEST_IMAGE_URL = "https://multimedia-example-files.replicate.dev/philips-pm5544.768x576.retro-tv-test.png"
+TEST_IMAGE_WIDTH = 768
+TEST_IMAGE_HEIGHT = 576
+
 
 def test_cog_safe_push():
     model_owner = "replicate-internal"
@@ -128,33 +132,31 @@ def test_cog_safe_push_images():
                 test_cases=[
                     (
                         {
-                            "image": "https://storage.googleapis.com/cog-safe-push-public/fast-car.jpg",
-                            "width": 1024,
-                            "height": 639,
+                            "image": TEST_IMAGE_URL,
+                            "width": TEST_IMAGE_WIDTH,
+                            "height": TEST_IMAGE_HEIGHT,
                         },
-                        MatchURLChecker(
-                            "https://storage.googleapis.com/cog-safe-push-public/fast-car.jpg"
-                        ),
+                        MatchURLChecker(TEST_IMAGE_URL),
                     ),
                     (
                         {
-                            "image": "https://storage.googleapis.com/cog-safe-push-public/fast-car.jpg",
+                            "image": TEST_IMAGE_URL,
                             "width": 200,
                             "height": 100,
                         },
-                        AIChecker("An image of a car"),
+                        AIChecker("A TV test pattern with color bars"),
                     ),
                     (
                         {
-                            "image": "https://storage.googleapis.com/cog-safe-push-public/fast-car.jpg",
+                            "image": TEST_IMAGE_URL,
                             "width": 200,
                             "height": 100,
                         },
-                        AIChecker("A jpg image"),
+                        AIChecker("A png image"),
                     ),
                     (
                         {
-                            "image": "https://storage.googleapis.com/cog-safe-push-public/fast-car.jpg",
+                            "image": TEST_IMAGE_URL,
                             "width": 200,
                             "height": 100,
                         },
@@ -162,7 +164,7 @@ def test_cog_safe_push_images():
                     ),
                     (
                         {
-                            "image": "https://storage.googleapis.com/cog-safe-push-public/fast-car.jpg",
+                            "image": TEST_IMAGE_URL,
                             "width": 200,
                             "height": 100,
                         },
@@ -312,11 +314,11 @@ def test_cog_safe_push_deployment():
                 test_cases=[
                     (
                         {
-                            "image": "https://storage.googleapis.com/cog-safe-push-public/fast-car.jpg",
+                            "image": TEST_IMAGE_URL,
                             "width": 200,
                             "height": 100,
                         },
-                        AIChecker("An image of a car"),
+                        AIChecker("A TV test pattern with color bars"),
                     ),
                 ],
             )
