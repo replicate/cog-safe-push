@@ -245,6 +245,18 @@ You must follow these instructions: {fuzz_prompt}"""
     return inputs, is_deterministic
 
 
+def unwrap_single_output(output: Any, output_schema: dict) -> Any:
+    # Replicate sometimes returns a single output as a one-item list, even
+    # when the schema declares a scalar.
+    if (
+        isinstance(output, list)
+        and len(output) == 1
+        and output_schema.get("type") not in (None, "array")
+    ):
+        return output[0]
+    return output
+
+
 async def predict(
     model: Model,
     train: bool,
@@ -301,6 +313,12 @@ async def predict(
     output = prediction.output
     if _has_output_iterator_array_type(version):
         output = "".join(cast("list[str]", output))
+    else:
+        output_name = "TrainingOutput" if train else "Output"
+        output_schema = version.openapi_schema["components"]["schemas"].get(
+            output_name, {}
+        )
+        output = unwrap_single_output(output, output_schema)
 
     log.v(f"{prefix}Got output: {truncate(output)}  ({duration:.2f} sec)")
 
