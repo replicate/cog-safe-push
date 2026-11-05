@@ -106,7 +106,7 @@ usage: cog-safe-push [-h] [--config CONFIG] [--help-config]
                      [--fuzz-iterations FUZZ_ITERATIONS]
                      [--fuzz-prompt FUZZ_PROMPT] [--parallel PARALLEL]
                      [--ignore-schema-compatibility] [-v]
-                     [--push-official-model]
+                     [--push-official-model] [--validate-config]
                      [model]
 
 Safely push a Cog model, with tests
@@ -175,6 +175,9 @@ options:
   -v, --verbose         Increase verbosity level (max 3)
   --push-official-model
                         Push to the official model defined in the config
+  --validate-config     Load and validate the config, then exit without
+                        testing or pushing anything. Needs no
+                        REPLICATE_API_TOKEN, cog, or network access.
 ```
 
 ### Using a configuration file
@@ -277,6 +280,10 @@ deployment:
      - GPU: 0-2 instances
 
 The deployment will be created under the specified owner (or model owner if not specified) and will use the hardware configuration you provide.
+
+`deployment.name` is the short name only. A name that includes the owner, such as `replicate/my-model-deployment`, is rejected when the config loads. Set `deployment.owner` instead.
+
+To check a config in CI without testing or pushing, run `cog-safe-push --config cog-safe-push.yaml --validate-config`. It needs no `REPLICATE_API_TOKEN`, `cog`, or network access.
 
 ## Nota bene
 
